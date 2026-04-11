@@ -6,31 +6,34 @@ import { RegisterComponent } from './features/auth/pages/register/register.compo
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { authGuard } from './core/guards/auth.guard';
 import { AuthService } from './features/auth/services/auth.service';
-
+import { WorkflowDesignerComponent } from './features/workflow/pages/workflow-designer/workflow-designer.component';
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   {
     path: 'login',
     component: LoginComponent,
-    canActivate: [() => {
-      const auth = inject(AuthService);
-      const router = inject(Router);
-      const platformId = inject(PLATFORM_ID);
+    canActivate: [
+      () => {
+        const auth = inject(AuthService);
+        const router = inject(Router);
+        const platformId = inject(PLATFORM_ID);
 
-      if (!isPlatformBrowser(platformId)) {
+        if (!isPlatformBrowser(platformId)) {
+          return true;
+        }
+
+        const token = auth.getToken();
+
+        if (token) {
+          return router.createUrlTree(['/dashboard']);
+        }
+
         return true;
-      }
-
-      const token = auth.getToken();
-
-      if (token) {
-        return router.createUrlTree(['/dashboard']);
-      }
-
-      return true;
-    }]
+      },
+    ],
   },
   { path: 'register', component: RegisterComponent },
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
-  { path: '**', redirectTo: 'login' }
+  { path: 'projects/:id/designer', component: WorkflowDesignerComponent, canActivate: [authGuard] },
+  { path: '**', redirectTo: 'login' },
 ];

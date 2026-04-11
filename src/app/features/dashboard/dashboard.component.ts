@@ -15,7 +15,7 @@ type InviteFormType = FormGroup<{
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
-  templateUrl: './dashboard.component.html'
+  templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit {
   private authService = inject(AuthService);
@@ -43,7 +43,7 @@ export class DashboardComponent implements OnInit {
 
   projectForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
-    description: ['']
+    description: [''],
   });
 
   inviteForms: Record<string, InviteFormType> = {};
@@ -53,6 +53,10 @@ export class DashboardComponent implements OnInit {
     this.loadProjects();
   }
 
+  openDesigner(projectId: string): void {
+    this.router.navigate(['/projects', projectId, 'designer']);
+  }
+
   loadProjects(): void {
     this.loadingProjects = true;
     this.projectErrorMessage = '';
@@ -60,7 +64,7 @@ export class DashboardComponent implements OnInit {
     forkJoin({
       my: this.projectService.getMyProjects(),
       owned: this.projectService.getOwnedProjects(),
-      shared: this.projectService.getSharedProjects()
+      shared: this.projectService.getSharedProjects(),
     }).subscribe({
       next: ({ my, owned, shared }) => {
         this.myProjects = my ?? [];
@@ -72,10 +76,9 @@ export class DashboardComponent implements OnInit {
       },
       error: (error) => {
         this.loadingProjects = false;
-        this.projectErrorMessage =
-          error?.error?.message || 'No se pudieron cargar los proyectos';
+        this.projectErrorMessage = error?.error?.message || 'No se pudieron cargar los proyectos';
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 
@@ -83,7 +86,7 @@ export class DashboardComponent implements OnInit {
     for (const project of projects) {
       if (!this.inviteForms[project.projectId]) {
         this.inviteForms[project.projectId] = this.fb.nonNullable.group({
-          email: ['', [Validators.required, Validators.email]]
+          email: ['', [Validators.required, Validators.email]],
         }) as InviteFormType;
       }
     }
@@ -105,9 +108,9 @@ export class DashboardComponent implements OnInit {
   }
 
   private removeProjectFromLists(projectId: string): void {
-    this.myProjects = this.myProjects.filter(project => project.projectId !== projectId);
-    this.ownedProjects = this.ownedProjects.filter(project => project.projectId !== projectId);
-    this.sharedProjects = this.sharedProjects.filter(project => project.projectId !== projectId);
+    this.myProjects = this.myProjects.filter((project) => project.projectId !== projectId);
+    this.ownedProjects = this.ownedProjects.filter((project) => project.projectId !== projectId);
+    this.sharedProjects = this.sharedProjects.filter((project) => project.projectId !== projectId);
 
     delete this.inviteForms[projectId];
     delete this.inviteMessages[projectId];
@@ -144,24 +147,23 @@ export class DashboardComponent implements OnInit {
           projectId: createdProject.id,
           name: createdProject.name,
           description: createdProject.description ?? '',
-          role: 'ADMINISTRADOR'
+          role: 'ADMINISTRADOR',
         };
 
         this.addProjectToLists(projectToAdd);
 
         this.projectForm.reset({
           name: '',
-          description: ''
+          description: '',
         });
 
         this.cdr.detectChanges();
       },
       error: (error) => {
         this.creatingProject = false;
-        this.projectErrorMessage =
-          error?.error?.message || 'No se pudo crear el proyecto';
+        this.projectErrorMessage = error?.error?.message || 'No se pudo crear el proyecto';
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 
@@ -171,36 +173,35 @@ export class DashboardComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-inviteUser(projectId: string): void {
-  const form = this.inviteForms[projectId];
+  inviteUser(projectId: string): void {
+    const form = this.inviteForms[projectId];
 
-  if (!form) {
-    return;
-  }
-
-  if (form.invalid) {
-    form.markAllAsTouched();
-    return;
-  }
-
-  const email = String(form.controls.email.value ?? '');
-
-  this.inviteMessages[projectId] = 'Enviando invitación...';
-  this.cdr.detectChanges();
-
-  this.projectService.inviteUser(projectId, { email }).subscribe({
-    next: (response) => {
-      this.inviteMessages[projectId] = response?.message || 'Usuario invitado correctamente';
-      form.reset({ email: '' });
-      this.cdr.detectChanges();
-    },
-    error: (error) => {
-      this.inviteMessages[projectId] =
-        error?.error?.message || 'No se pudo invitar al usuario';
-      this.cdr.detectChanges();
+    if (!form) {
+      return;
     }
-  });
-}
+
+    if (form.invalid) {
+      form.markAllAsTouched();
+      return;
+    }
+
+    const email = String(form.controls.email.value ?? '');
+
+    this.inviteMessages[projectId] = 'Enviando invitación...';
+    this.cdr.detectChanges();
+
+    this.projectService.inviteUser(projectId, { email }).subscribe({
+      next: (response) => {
+        this.inviteMessages[projectId] = response?.message || 'Usuario invitado correctamente';
+        form.reset({ email: '' });
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.inviteMessages[projectId] = error?.error?.message || 'No se pudo invitar al usuario';
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
   deleteProject(projectId: string): void {
     const confirmed = window.confirm('¿Seguro que deseas eliminar este proyecto?');
@@ -223,10 +224,9 @@ inviteUser(projectId: string): void {
       },
       error: (error) => {
         this.deletingProjectId = null;
-        this.projectErrorMessage =
-          error?.error?.message || 'No se pudo eliminar el proyecto';
+        this.projectErrorMessage = error?.error?.message || 'No se pudo eliminar el proyecto';
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 

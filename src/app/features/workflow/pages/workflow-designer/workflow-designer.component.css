@@ -1,0 +1,8 @@
+.workflow-canvas {
+  width: 100%;
+  height: 70vh;
+  min-height: 650px;
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+}
