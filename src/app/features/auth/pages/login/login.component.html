@@ -1,0 +1,67 @@
+<div class="min-h-screen flex items-center justify-center bg-slate-100 px-4">
+  <div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl border border-slate-200">
+    <div class="mb-8 text-center">
+      <h1 class="text-3xl font-bold text-slate-800">Iniciar sesión</h1>
+      <p class="mt-2 text-sm text-slate-500">Ingresa con tu cuenta para continuar</p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-5">
+      <div>
+        <label for="email" class="mb-2 block text-sm font-medium text-slate-700">
+          Correo
+        </label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="tucorreo@gmail.com"
+          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+        />
+        <p
+          *ngIf="form.controls.email.touched && form.controls.email.invalid"
+          class="mt-2 text-sm text-red-500"
+        >
+          Ingresa un correo válido
+        </p>
+      </div>
+
+      <div>
+        <label for="password" class="mb-2 block text-sm font-medium text-slate-700">
+          Contraseña
+        </label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="••••••••"
+          class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+        />
+        <p
+          *ngIf="form.controls.password.touched && form.controls.password.invalid"
+          class="mt-2 text-sm text-red-500"
+        >
+          La contraseña debe tener al menos 6 caracteres
+        </p>
+      </div>
+
+      <div *ngIf="errorMessage" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 border border-red-200">
+        {{ errorMessage }}
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="loading"
+        class="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {{ loading ? 'Ingresando...' : 'Ingresar' }}
+      </button>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-slate-600">
+      ¿No tienes cuenta?
+      <a routerLink="/register" class="font-semibold text-blue-600 hover:text-blue-700">
+        Regístrate
+      </a>
+    </p>
+  </div>
+</div>

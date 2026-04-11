@@ -1,0 +1,51 @@
+<div class="min-h-screen bg-slate-100">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div>
+        <h1 class="text-xl font-bold text-slate-800">Dashboard</h1>
+        <p class="text-sm text-slate-500">Panel principal del sistema</p>
+      </div>
+
+      <button
+        (click)="logout()"
+        class="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-600"
+      >
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-6 py-8">
+    <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="text-2xl font-bold text-slate-800">
+        Bienvenido{{ user?.name ? ', ' + user.name : '' }}
+      </h2>
+      <p class="mt-2 text-slate-600">
+        Has iniciado sesión correctamente en el sistema.
+      </p>
+    </section>
+
+    <section class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Usuario</p>
+        <p class="mt-2 text-lg font-semibold text-slate-800">
+          {{ user?.name || 'Sin nombre' }}
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Correo</p>
+        <p class="mt-2 text-lg font-semibold text-slate-800 break-all">
+          {{ user?.email || 'Sin correo' }}
+        </p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p class="text-sm font-medium text-slate-500">Estado</p>
+        <p class="mt-2 inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
+          Sesión activa
+        </p>
+      </div>
+    </section>
+  </main>
+</div>
