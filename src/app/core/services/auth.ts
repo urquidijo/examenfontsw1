@@ -19,6 +19,9 @@ export interface AuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
+  getToken() {
+    throw new Error('Method not implemented.');
+  }
   private readonly apiUrl = 'http://localhost:8080/api/auth';
 
   constructor(private http: HttpClient) {}

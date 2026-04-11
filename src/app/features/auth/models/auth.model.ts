@@ -9,15 +9,21 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface UserResponse {
-  id: number | string;
-  name: string;
-  email: string;
+export interface MessageResponse {
+  message: string;
 }
 
 export interface AuthResponse {
   token: string;
-  type?: string;
-  user?: UserResponse;
-  message?: string;
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface StoredUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string | null;
 }
