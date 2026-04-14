@@ -24,11 +24,11 @@ export class AuthService {
   }
 
   register(data: RegisterRequest): Observable<MessageResponse> {
-    return this.http.post<MessageResponse>(`${this.apiUrl}/api/auth/register`, data);
+    return this.http.post<MessageResponse>(`${this.apiUrl}/auth/register`, data);
   }
 
   login(data: LoginRequest): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/api/auth/login`, data).pipe(
+    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, data).pipe(
       tap((response) => {
         if (!this.isBrowser()) {
           return;

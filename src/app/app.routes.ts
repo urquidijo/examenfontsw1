@@ -7,6 +7,8 @@ import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { authGuard } from './core/guards/auth.guard';
 import { AuthService } from './features/auth/services/auth.service';
 import { WorkflowDesignerComponent } from './features/workflow/pages/workflow-designer/workflow-designer.component';
+import { NodeInviteComponent } from './features/workflow/pages/node-invite/node-invite.component';
+
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   {
@@ -35,5 +37,8 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
   { path: 'projects/:id/designer', component: WorkflowDesignerComponent, canActivate: [authGuard] },
+
+  { path: 'node-invite/:token', component: NodeInviteComponent },
+
   { path: '**', redirectTo: 'login' },
 ];
