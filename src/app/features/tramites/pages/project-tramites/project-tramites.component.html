@@ -1,0 +1,292 @@
+<div class="min-h-screen bg-slate-100">
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div class="flex items-center gap-3">
+        <button
+          (click)="goBack()"
+          class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Volver
+        </button>
+
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">Trámites personalizados</h1>
+          <p class="mt-1 text-sm text-slate-500">
+            Crea formularios personalizados para los funcionarios.
+          </p>
+        </div>
+      </div>
+
+      <button
+        (click)="toggleForm()"
+        class="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+      >
+        {{ showForm ? 'Cerrar' : 'Crear trámite' }}
+      </button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-6 py-8">
+    <div
+      *ngIf="loading"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+    >
+      Cargando trámites...
+    </div>
+
+    <div
+      *ngIf="!loading && errorMessage"
+      class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+    >
+      {{ errorMessage }}
+    </div>
+
+    <div
+      *ngIf="successMessage"
+      class="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-700"
+    >
+      {{ successMessage }}
+    </div>
+
+    <ng-container *ngIf="!loading && project">
+      <section class="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-2xl font-bold text-slate-800">{{ project.name }}</h2>
+        <p class="mt-2 text-sm text-slate-500">
+          {{ project.description || 'Sin descripción' }}
+        </p>
+      </section>
+
+      <section
+        *ngIf="showForm"
+        class="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-800">
+            {{ editingTramiteId ? 'Editar trámite' : 'Nuevo trámite' }}
+          </h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Define la información base y los campos del formulario.
+          </p>
+        </div>
+
+        <form [formGroup]="tramiteForm" (ngSubmit)="saveTramite()" class="space-y-6">
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="md:col-span-1">
+              <label class="mb-2 block text-sm font-medium text-slate-700">Nombre</label>
+              <input
+                type="text"
+                formControlName="name"
+                placeholder="Ej. Trámite RRHH"
+                class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+            </div>
+
+            <div class="md:col-span-1">
+              <label class="mb-2 block text-sm font-medium text-slate-700">Descripción</label>
+              <input
+                type="text"
+                formControlName="description"
+                placeholder="Descripción breve"
+                class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              />
+            </div>
+
+            <div class="md:col-span-1">
+              <label class="mb-2 block text-sm font-medium text-slate-700">Estado</label>
+              <select
+                formControlName="active"
+                class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+              >
+                <option [ngValue]="true">Activo</option>
+                <option [ngValue]="false">Inactivo</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <div class="mb-4 flex items-center justify-between">
+              <div>
+                <h4 class="text-lg font-bold text-slate-800">Campos del formulario</h4>
+                <p class="text-sm text-slate-500">
+                  Agrega los campos que deberá rellenar el funcionario.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                (click)="addField()"
+                class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+              >
+                Agregar campo
+              </button>
+            </div>
+
+            <div
+              *ngIf="fieldsArray.length === 0"
+              class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500"
+            >
+              Aún no agregaste campos al trámite.
+            </div>
+
+            <div formArrayName="fields" class="grid gap-4">
+              <div
+                *ngFor="let field of fieldsArray.controls; let i = index"
+                [formGroupName]="i"
+                class="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <div class="grid gap-4 md:grid-cols-5">
+                  <div class="md:col-span-2">
+                    <label class="mb-2 block text-sm font-medium text-slate-700">Etiqueta</label>
+                    <input
+                      type="text"
+                      formControlName="label"
+                      placeholder="Ej. Nombre completo"
+                      class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-700">Tipo</label>
+                    <select
+                      formControlName="type"
+                      class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    >
+                      <option *ngFor="let type of fieldTypes" [value]="type">{{ type }}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-slate-700">Placeholder</label>
+                    <input
+                      type="text"
+                      formControlName="placeholder"
+                      placeholder="Texto guía"
+                      class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div class="flex items-end">
+                    <button
+                      type="button"
+                      (click)="removeField(i)"
+                      class="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                </div>
+
+                <div class="mt-4 grid gap-4 md:grid-cols-4">
+                  <div class="md:col-span-1">
+                    <label class="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <input type="checkbox" formControlName="required" />
+                      Obligatorio
+                    </label>
+                  </div>
+
+                  <div class="md:col-span-3" *ngIf="isSelectField(i)">
+                    <label class="mb-2 block text-sm font-medium text-slate-700">
+                      Opciones del select
+                    </label>
+                    <input
+                      type="text"
+                      formControlName="optionsText"
+                      placeholder="Opción 1, Opción 2, Opción 3"
+                      class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              [disabled]="saving"
+              class="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {{ saving ? 'Guardando...' : editingTramiteId ? 'Actualizar trámite' : 'Guardar trámite' }}
+            </button>
+
+            <button
+              type="button"
+              (click)="cancelEdit()"
+              class="rounded-2xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-800">Lista de trámites</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Formularios personalizados disponibles en este proyecto.
+          </p>
+        </div>
+
+        <div
+          *ngIf="tramites.length === 0"
+          class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500"
+        >
+          Aún no hay trámites creados.
+        </div>
+
+        <div class="grid gap-4" *ngIf="tramites.length > 0">
+          <article
+            *ngFor="let tramite of tramites"
+            class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+          >
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <h4 class="text-lg font-bold text-slate-800">{{ tramite.name }}</h4>
+
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-semibold"
+                    [ngClass]="{
+                      'bg-green-100 text-green-700': tramite.active,
+                      'bg-slate-200 text-slate-700': !tramite.active
+                    }"
+                  >
+                    {{ tramite.active ? 'Activo' : 'Inactivo' }}
+                  </span>
+                </div>
+
+                <p class="mt-2 text-sm text-slate-600">
+                  {{ tramite.description || 'Sin descripción' }}
+                </p>
+
+                <div class="mt-4 flex flex-wrap gap-3 text-sm text-slate-500">
+                  <span class="rounded-full border border-slate-200 bg-white px-3 py-1">
+                    Campos: {{ tramite.fieldsCount }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button
+                  (click)="editTramite(tramite)"
+                  class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                >
+                  Editar
+                </button>
+
+                <button
+                  (click)="deleteTramite(tramite.id)"
+                  [disabled]="deletingTramiteId === tramite.id"
+                  class="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {{ deletingTramiteId === tramite.id ? 'Eliminando...' : 'Eliminar' }}
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </ng-container>
+  </main>
+</div>

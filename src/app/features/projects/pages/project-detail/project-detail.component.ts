@@ -68,6 +68,6 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   openCases(): void {
-    alert('Aquí irá la gestión de trámites');
+    this.router.navigate(['/projects', this.projectId, 'tramites']);
   }
 }

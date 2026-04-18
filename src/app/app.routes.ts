@@ -10,6 +10,7 @@ import { NodeInviteComponent } from './features/workflow/pages/node-invite/node-
 import { ProjectDetailComponent } from './features/projects/pages/project-detail/project-detail.component';
 import { ProjectWorkflowsComponent } from './features/workflow/pages/project-workflows/project-workflows.component';
 import { ProjectUsersComponent } from './features/projects/pages/project-users/project-users.component';
+import { ProjectTramitesComponent } from './features/tramites/pages/project-tramites/project-tramites.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -43,6 +44,8 @@ export const routes: Routes = [
   { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/users', component: ProjectUsersComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/tramites', component: ProjectTramitesComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/workflows', component: ProjectWorkflowsComponent, canActivate: [authGuard] },
 
