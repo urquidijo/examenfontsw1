@@ -23,7 +23,7 @@
 
         <button
           (click)="saveWorkflow()"
-          [disabled]="saving || loading"
+          [disabled]="saving || loading || isPublished"
           class="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
         >
           {{ saving ? 'Guardando...' : 'Guardar flujo' }}
@@ -33,6 +33,13 @@
   </header>
 
   <main class="mx-auto max-w-400 px-6 py-8">
+    <div
+      *ngIf="isPublished"
+      class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+    >
+      Este workflow está en producción. No se puede editar mientras esté publicado.
+    </div>
+
     <div
       *ngIf="message"
       class="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
@@ -57,7 +64,7 @@
         <div class="mt-5 space-y-3">
           <button
             (click)="addStartNode()"
-            [disabled]="loading"
+            [disabled]="loading || isPublished"
             class="w-full rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-left text-sm font-semibold text-green-700 hover:bg-green-100 disabled:opacity-60"
           >
             + Inicio
@@ -65,7 +72,7 @@
 
           <button
             (click)="addTaskNode()"
-            [disabled]="loading"
+            [disabled]="loading || isPublished"
             class="w-full rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
           >
             + Actividad
@@ -73,7 +80,7 @@
 
           <button
             (click)="addDecisionNode()"
-            [disabled]="loading"
+            [disabled]="loading || isPublished"
             class="w-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-60"
           >
             + Decisión
@@ -81,7 +88,7 @@
 
           <button
             (click)="addForkNode()"
-            [disabled]="loading"
+            [disabled]="loading || isPublished"
             class="w-full rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
           >
             + Fork
@@ -89,7 +96,7 @@
 
           <button
             (click)="addJoinNode()"
-            [disabled]="loading"
+            [disabled]="loading || isPublished"
             class="w-full rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-left text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-100 disabled:opacity-60"
           >
             + Join
@@ -97,7 +104,7 @@
 
           <button
             (click)="addEndNode()"
-            [disabled]="loading"
+            [disabled]="loading || isPublished"
             class="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
           >
             + Fin
@@ -109,28 +116,32 @@
           <div class="mt-3 space-y-2">
             <button
               (click)="applyLinearTemplate()"
-              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              [disabled]="isPublished"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
             >
               Flujo lineal
             </button>
 
             <button
               (click)="applyConditionalTemplate()"
-              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              [disabled]="isPublished"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
             >
               Flujo condicional
             </button>
 
             <button
               (click)="applyParallelTemplate()"
-              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              [disabled]="isPublished"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
             >
               Flujo paralelo
             </button>
 
             <button
               (click)="applyIterativeTemplate()"
-              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              [disabled]="isPublished"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
             >
               Flujo iterativo
             </button>
@@ -171,7 +182,8 @@
             <label class="mb-2 block text-sm font-medium text-slate-700">Nombre</label>
             <input
               [(ngModel)]="nodeForm.label"
-              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              [disabled]="isPublished"
+              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
               placeholder="Nombre del nodo"
             />
           </div>
@@ -180,7 +192,8 @@
             <label class="mb-2 block text-sm font-medium text-slate-700">Tipo de nodo</label>
             <select
               [(ngModel)]="nodeForm.nodeType"
-              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              [disabled]="isPublished"
+              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
             >
               <option value="start">Inicio</option>
               <option value="task">Actividad</option>
@@ -196,7 +209,8 @@
             <select
               [(ngModel)]="nodeForm.departmentId"
               (change)="onDepartmentChange()"
-              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              [disabled]="isPublished"
+              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
             >
               <option value="">Sin departamento</option>
               <option *ngFor="let department of departments" [value]="department.id">
@@ -210,7 +224,8 @@
             <textarea
               [(ngModel)]="nodeForm.instructions"
               rows="4"
-              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              [disabled]="isPublished"
+              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-60"
               placeholder="Indica qué debe hacerse en este nodo"
             ></textarea>
           </div>
@@ -218,14 +233,16 @@
           <div class="flex gap-2">
             <button
               (click)="saveSelectedNodeConfig()"
-              class="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              [disabled]="isPublished"
+              class="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
             >
               Guardar configuración
             </button>
 
             <button
               (click)="deleteSelectedNode()"
-              class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100"
+              [disabled]="isPublished"
+              class="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60"
             >
               Eliminar
             </button>

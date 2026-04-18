@@ -1,3 +1,5 @@
+export type WorkflowStatus = 'DRAFT' | 'PUBLISHED';
+
 export interface WorkflowNodeData {
   id: string;
   shape: string;
@@ -22,6 +24,7 @@ export interface WorkflowDiagram {
   projectId: string;
   name: string;
   description?: string;
+  status: WorkflowStatus;
   nodes: WorkflowNodeData[];
   edges: WorkflowEdgeData[];
 }
@@ -33,6 +36,7 @@ export interface WorkflowSummary {
   description?: string;
   nodesCount: number;
   edgesCount: number;
+  status: 'DRAFT' | 'PUBLISHED';
   createdAt?: string;
   updatedAt?: string;
 }

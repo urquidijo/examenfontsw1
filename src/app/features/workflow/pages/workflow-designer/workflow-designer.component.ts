@@ -16,6 +16,7 @@ import { finalize, forkJoin, timeout } from 'rxjs';
 import { WorkflowService } from '../../services/workflow.service';
 import { DepartmentService } from '../../../departments/services/department.service';
 import { Department } from '../../../departments/models/department.model';
+import { WorkflowStatus } from '../../models/workflow.model';
 
 type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
@@ -54,10 +55,16 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   message = '';
   errorMessage = '';
 
+  workflowStatus: WorkflowStatus = 'DRAFT';
+
   selectedNode: any = null;
   departments: Department[] = [];
 
   nodeForm: WorkflowNodeConfig = this.createEmptyNodeConfig('task');
+
+  get isPublished(): boolean {
+    return this.workflowStatus === 'PUBLISHED';
+  }
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
@@ -164,7 +171,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     if (this.graph.bindKey) {
       this.graph.bindKey(['backspace', 'delete'], () => {
-        if (this.loading) return false;
+        if (this.loading || this.isPublished) return false;
 
         const cells = this.graph.getSelectedCells?.() || [];
         if (cells.length) {
@@ -201,6 +208,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       .subscribe({
         next: ({ workflow, departments }) => {
           this.departments = departments ?? [];
+          this.workflowStatus = workflow?.status || 'DRAFT';
 
           this.graph.clearCells();
 
@@ -500,7 +508,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private replaceWithTemplate(nodes: any[], edges: any[], message: string): void {
-    if (!this.graph) return;
+    if (!this.graph || this.isPublished) {
+      this.errorMessage = 'El workflow está en producción y no puede editarse';
+      return;
+    }
 
     const confirmed =
       !this.graph.getCells || this.graph.getCells().length === 0
@@ -520,30 +531,9 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   applyLinearTemplate(): void {
     const nodes = [
-      {
-        id: 'linear-start',
-        shape: 'workflow-start',
-        x: 80,
-        y: 120,
-        label: 'Inicio',
-        data: this.buildNodePayload('start', 'Inicio'),
-      },
-      {
-        id: 'linear-task-1',
-        shape: 'workflow-task',
-        x: 320,
-        y: 110,
-        label: 'Actividad',
-        data: this.buildNodePayload('task', 'Actividad'),
-      },
-      {
-        id: 'linear-end',
-        shape: 'workflow-end',
-        x: 620,
-        y: 120,
-        label: 'Fin',
-        data: this.buildNodePayload('end', 'Fin'),
-      },
+      { id: 'linear-start', shape: 'workflow-start', x: 80, y: 120, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
+      { id: 'linear-task-1', shape: 'workflow-task', x: 320, y: 110, label: 'Actividad', data: this.buildNodePayload('task', 'Actividad') },
+      { id: 'linear-end', shape: 'workflow-end', x: 620, y: 120, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
     ];
 
     const edges = [
@@ -556,46 +546,11 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   applyConditionalTemplate(): void {
     const nodes = [
-      {
-        id: 'cond-start',
-        shape: 'workflow-start',
-        x: 80,
-        y: 180,
-        label: 'Inicio',
-        data: this.buildNodePayload('start', 'Inicio'),
-      },
-      {
-        id: 'cond-decision',
-        shape: 'workflow-decision',
-        x: 300,
-        y: 140,
-        label: 'Decisión',
-        data: this.buildNodePayload('decision', 'Decisión'),
-      },
-      {
-        id: 'cond-task-yes',
-        shape: 'workflow-task',
-        x: 560,
-        y: 40,
-        label: 'Ruta Sí',
-        data: this.buildNodePayload('task', 'Ruta Sí'),
-      },
-      {
-        id: 'cond-task-no',
-        shape: 'workflow-task',
-        x: 560,
-        y: 250,
-        label: 'Ruta No',
-        data: this.buildNodePayload('task', 'Ruta No'),
-      },
-      {
-        id: 'cond-end',
-        shape: 'workflow-end',
-        x: 860,
-        y: 180,
-        label: 'Fin',
-        data: this.buildNodePayload('end', 'Fin'),
-      },
+      { id: 'cond-start', shape: 'workflow-start', x: 80, y: 180, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
+      { id: 'cond-decision', shape: 'workflow-decision', x: 300, y: 140, label: 'Decisión', data: this.buildNodePayload('decision', 'Decisión') },
+      { id: 'cond-task-yes', shape: 'workflow-task', x: 560, y: 40, label: 'Ruta Sí', data: this.buildNodePayload('task', 'Ruta Sí') },
+      { id: 'cond-task-no', shape: 'workflow-task', x: 560, y: 250, label: 'Ruta No', data: this.buildNodePayload('task', 'Ruta No') },
+      { id: 'cond-end', shape: 'workflow-end', x: 860, y: 180, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
     ];
 
     const edges = [
@@ -611,54 +566,12 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   applyParallelTemplate(): void {
     const nodes = [
-      {
-        id: 'parallel-start',
-        shape: 'workflow-start',
-        x: 80,
-        y: 180,
-        label: 'Inicio',
-        data: this.buildNodePayload('start', 'Inicio'),
-      },
-      {
-        id: 'parallel-fork',
-        shape: 'workflow-fork',
-        x: 300,
-        y: 190,
-        label: 'Fork',
-        data: this.buildNodePayload('fork', 'Fork'),
-      },
-      {
-        id: 'parallel-task-1',
-        shape: 'workflow-task',
-        x: 560,
-        y: 60,
-        label: 'Actividad A',
-        data: this.buildNodePayload('task', 'Actividad A'),
-      },
-      {
-        id: 'parallel-task-2',
-        shape: 'workflow-task',
-        x: 560,
-        y: 300,
-        label: 'Actividad B',
-        data: this.buildNodePayload('task', 'Actividad B'),
-      },
-      {
-        id: 'parallel-join',
-        shape: 'workflow-join',
-        x: 860,
-        y: 190,
-        label: 'Join',
-        data: this.buildNodePayload('join', 'Join'),
-      },
-      {
-        id: 'parallel-end',
-        shape: 'workflow-end',
-        x: 1120,
-        y: 180,
-        label: 'Fin',
-        data: this.buildNodePayload('end', 'Fin'),
-      },
+      { id: 'parallel-start', shape: 'workflow-start', x: 80, y: 180, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
+      { id: 'parallel-fork', shape: 'workflow-fork', x: 300, y: 190, label: 'Fork', data: this.buildNodePayload('fork', 'Fork') },
+      { id: 'parallel-task-1', shape: 'workflow-task', x: 560, y: 60, label: 'Actividad A', data: this.buildNodePayload('task', 'Actividad A') },
+      { id: 'parallel-task-2', shape: 'workflow-task', x: 560, y: 300, label: 'Actividad B', data: this.buildNodePayload('task', 'Actividad B') },
+      { id: 'parallel-join', shape: 'workflow-join', x: 860, y: 190, label: 'Join', data: this.buildNodePayload('join', 'Join') },
+      { id: 'parallel-end', shape: 'workflow-end', x: 1120, y: 180, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
     ];
 
     const edges = [
@@ -675,38 +588,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   applyIterativeTemplate(): void {
     const nodes = [
-      {
-        id: 'iter-start',
-        shape: 'workflow-start',
-        x: 80,
-        y: 180,
-        label: 'Inicio',
-        data: this.buildNodePayload('start', 'Inicio'),
-      },
-      {
-        id: 'iter-task',
-        shape: 'workflow-task',
-        x: 320,
-        y: 170,
-        label: 'Actividad',
-        data: this.buildNodePayload('task', 'Actividad'),
-      },
-      {
-        id: 'iter-decision',
-        shape: 'workflow-decision',
-        x: 600,
-        y: 140,
-        label: '¿Repetir?',
-        data: this.buildNodePayload('decision', '¿Repetir?'),
-      },
-      {
-        id: 'iter-end',
-        shape: 'workflow-end',
-        x: 900,
-        y: 180,
-        label: 'Fin',
-        data: this.buildNodePayload('end', 'Fin'),
-      },
+      { id: 'iter-start', shape: 'workflow-start', x: 80, y: 180, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
+      { id: 'iter-task', shape: 'workflow-task', x: 320, y: 170, label: 'Actividad', data: this.buildNodePayload('task', 'Actividad') },
+      { id: 'iter-decision', shape: 'workflow-decision', x: 600, y: 140, label: '¿Repetir?', data: this.buildNodePayload('decision', '¿Repetir?') },
+      { id: 'iter-end', shape: 'workflow-end', x: 900, y: 180, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
     ];
 
     const edges = [
@@ -720,7 +605,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   addStartNode(): void {
-    if (this.loading || !this.graph) return;
+    if (this.loading || !this.graph || this.isPublished) return;
     this.graph.addNode({
       shape: 'workflow-start',
       x: 80,
@@ -731,7 +616,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   addTaskNode(): void {
-    if (this.loading || !this.graph) return;
+    if (this.loading || !this.graph || this.isPublished) return;
     this.graph.addNode({
       shape: 'workflow-task',
       x: 280,
@@ -742,7 +627,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   addDecisionNode(): void {
-    if (this.loading || !this.graph) return;
+    if (this.loading || !this.graph || this.isPublished) return;
     this.graph.addNode({
       shape: 'workflow-decision',
       x: 520,
@@ -753,7 +638,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   addForkNode(): void {
-    if (this.loading || !this.graph) return;
+    if (this.loading || !this.graph || this.isPublished) return;
     this.graph.addNode({
       shape: 'workflow-fork',
       x: 720,
@@ -764,7 +649,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   addJoinNode(): void {
-    if (this.loading || !this.graph) return;
+    if (this.loading || !this.graph || this.isPublished) return;
     this.graph.addNode({
       shape: 'workflow-join',
       x: 720,
@@ -775,7 +660,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   addEndNode(): void {
-    if (this.loading || !this.graph) return;
+    if (this.loading || !this.graph || this.isPublished) return;
     this.graph.addNode({
       shape: 'workflow-end',
       x: 960,
@@ -796,6 +681,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   saveSelectedNodeConfig(): void {
     if (!this.selectedNode) return;
+    if (this.isPublished) {
+      this.errorMessage = 'El workflow está en producción y no puede editarse';
+      return;
+    }
 
     const cleanLabel = this.nodeForm.label.trim() || 'Sin nombre';
     const nodeType = this.nodeForm.nodeType;
@@ -823,6 +712,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   deleteSelectedNode(): void {
     if (!this.selectedNode || this.loading) return;
+    if (this.isPublished) {
+      this.errorMessage = 'El workflow está en producción y no puede editarse';
+      return;
+    }
 
     this.graph.removeCell(this.selectedNode);
     this.selectedNode = null;
@@ -834,6 +727,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   saveWorkflow(): void {
     if (this.loading || !this.graph) return;
+    if (this.isPublished) {
+      this.errorMessage = 'El workflow está en producción y no puede editarse';
+      return;
+    }
 
     this.saving = true;
     this.message = '';

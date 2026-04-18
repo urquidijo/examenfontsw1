@@ -13,6 +13,7 @@ import { ProjectUsersComponent } from './features/projects/pages/project-users/p
 import { ProjectTramitesComponent } from './features/tramites/pages/project-tramites/project-tramites.component';
 import { ProjectDepartmentsComponent } from './features/departments/pages/project-departments/project-departments.component';
 import { WorkflowDesignerComponent } from './features/workflow/pages/workflow-designer/workflow-designer.component';
+import { ProjectTicketsComponent } from './features/ticket/pages/project-tickets/project-tickets.component';
 
 
 export const routes: Routes = [
@@ -53,6 +54,8 @@ export const routes: Routes = [
   { path: 'projects/:projectId/workflows/:workflowId/designer', component: WorkflowDesignerComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/tramites', component: ProjectTramitesComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/tickets', component: ProjectTicketsComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/workflows', component: ProjectWorkflowsComponent, canActivate: [authGuard] },
 

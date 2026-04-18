@@ -140,4 +140,26 @@ export class ProjectWorkflowsComponent implements OnInit {
       },
     });
   }
+
+  changeWorkflowStatus(workflowId: string, status: 'DRAFT' | 'PUBLISHED'): void {
+    this.errorMessage = '';
+    this.successMessage = '';
+
+    this.workflowService.updateWorkflowStatus(this.projectId, workflowId, status).subscribe({
+      next: (updated) => {
+        this.workflows = this.workflows.map((item) => (item.id === updated.id ? updated : item));
+
+        this.successMessage =
+          status === 'PUBLISHED'
+            ? 'Workflow puesto en producción correctamente'
+            : 'Workflow devuelto a desarrollo correctamente';
+
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message || 'No se pudo cambiar el estado del workflow';
+        this.cdr.detectChanges();
+      },
+    });
+  }
 }

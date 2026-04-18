@@ -70,4 +70,8 @@ export class ProjectDetailComponent implements OnInit {
   openCases(): void {
     this.router.navigate(['/projects', this.projectId, 'tramites']);
   }
+
+  openTickets(): void {
+    this.router.navigate(['/projects', this.projectId, 'tickets']);
+  }
 }

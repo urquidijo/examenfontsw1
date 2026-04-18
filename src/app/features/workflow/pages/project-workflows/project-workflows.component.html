@@ -118,7 +118,20 @@
           >
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h4 class="text-lg font-bold text-slate-800">{{ workflow.name }}</h4>
+                <div class="flex flex-wrap items-center gap-3">
+                  <h4 class="text-lg font-bold text-slate-800">{{ workflow.name }}</h4>
+
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-semibold"
+                    [ngClass]="{
+                      'bg-amber-100 text-amber-700': workflow.status === 'DRAFT',
+                      'bg-green-100 text-green-700': workflow.status === 'PUBLISHED'
+                    }"
+                  >
+                    {{ workflow.status === 'PUBLISHED' ? 'Producción' : 'Desarrollo' }}
+                  </span>
+                </div>
+
                 <p class="mt-2 text-sm text-slate-600">
                   {{ workflow.description || 'Sin descripción' }}
                 </p>
@@ -135,11 +148,28 @@
 
               <div class="flex flex-wrap gap-2">
                 <button
+                  *ngIf="workflow.status === 'DRAFT'"
+                  (click)="changeWorkflowStatus(workflow.id, 'PUBLISHED')"
+                  class="rounded-2xl border border-green-200 bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100"
+                >
+                  Poner en producción
+                </button>
+
+                <button
+                  *ngIf="workflow.status === 'PUBLISHED'"
+                  (click)="changeWorkflowStatus(workflow.id, 'DRAFT')"
+                  class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+                >
+                  Volver a desarrollo
+                </button>
+
+                <button
                   (click)="openDesigner(workflow.id)"
                   class="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                 >
                   Diseñar
                 </button>
+                
 
                 <button
                   (click)="deleteWorkflow(workflow.id)"

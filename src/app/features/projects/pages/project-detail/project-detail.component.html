@@ -10,9 +10,7 @@
         </button>
 
         <div>
-          <h1 class="text-2xl font-bold text-slate-800">
-            Gestión del proyecto
-          </h1>
+          <h1 class="text-2xl font-bold text-slate-800">Gestión del proyecto</h1>
           <p class="mt-1 text-sm text-slate-500">
             Administra workflows, usuarios, departamentos y trámites.
           </p>
@@ -98,6 +96,18 @@
             class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
           >
             Ver trámites
+          </button>
+        </article>
+
+        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 class="text-lg font-bold text-slate-800">Tickets</h3>
+          <p class="mt-2 text-sm text-slate-500">Crea y administra tickets para el proyecto.</p>
+
+          <button
+            (click)="openTickets()"
+            class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
+          >
+            Ver tickets
           </button>
         </article>
       </section>

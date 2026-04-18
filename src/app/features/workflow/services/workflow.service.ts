@@ -28,24 +28,35 @@ export class WorkflowService {
 
   getWorkflow(projectId: string, workflowId: string): Observable<WorkflowDiagram> {
     return this.http.get<WorkflowDiagram>(
-      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`
+      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`,
     );
   }
 
   saveWorkflow(
     projectId: string,
     workflowId: string,
-    data: SaveWorkflowRequest
+    data: SaveWorkflowRequest,
   ): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(
       `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`,
-      data
+      data,
+    );
+  }
+
+  updateWorkflowStatus(
+    projectId: string,
+    workflowId: string,
+    status: 'DRAFT' | 'PUBLISHED',
+  ): Observable<WorkflowSummary> {
+    return this.http.patch<WorkflowSummary>(
+      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}/status`,
+      { status },
     );
   }
 
   deleteWorkflow(projectId: string, workflowId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(
-      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`
+      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`,
     );
   }
 
