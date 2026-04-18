@@ -11,6 +11,9 @@ import { ProjectDetailComponent } from './features/projects/pages/project-detail
 import { ProjectWorkflowsComponent } from './features/workflow/pages/project-workflows/project-workflows.component';
 import { ProjectUsersComponent } from './features/projects/pages/project-users/project-users.component';
 import { ProjectTramitesComponent } from './features/tramites/pages/project-tramites/project-tramites.component';
+import { ProjectDepartmentsComponent } from './features/departments/pages/project-departments/project-departments.component';
+import { WorkflowDesignerComponent } from './features/workflow/pages/workflow-designer/workflow-designer.component';
+
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -44,6 +47,10 @@ export const routes: Routes = [
   { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/users', component: ProjectUsersComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/departments', component: ProjectDepartmentsComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:projectId/workflows/:workflowId/designer', component: WorkflowDesignerComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/tramites', component: ProjectTramitesComponent, canActivate: [authGuard] },
 

@@ -3,10 +3,17 @@
     <div class="mx-auto flex max-w-400 items-center justify-between px-6 py-4">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">Diseñar flujo de trabajo</h1>
-        <p class="text-sm text-slate-500">Proyecto: {{ projectId }}</p>
+        <p class="text-sm text-slate-500">Workflow: {{ workflowId }}</p>
       </div>
 
       <div class="flex gap-3">
+        <button
+          (click)="openDepartments()"
+          class="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+        >
+          Configurar departamentos
+        </button>
+
         <button
           (click)="goBack()"
           class="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
@@ -26,11 +33,25 @@
   </header>
 
   <main class="mx-auto max-w-400 px-6 py-8">
-    <div class="grid gap-6 lg:grid-cols-[280px_1fr_380px]">
+    <div
+      *ngIf="message"
+      class="mb-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+    >
+      {{ message }}
+    </div>
+
+    <div
+      *ngIf="errorMessage"
+      class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+    >
+      {{ errorMessage }}
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[320px_1fr_380px]">
       <aside class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="text-lg font-bold text-slate-800">Nodos</h2>
         <p class="mt-1 text-sm text-slate-500">
-          Agrega nodos y conéctalos arrastrando desde sus puertos.
+          Agrega nodos o usa una plantilla prediseñada.
         </p>
 
         <div class="mt-5 space-y-3">
@@ -59,6 +80,22 @@
           </button>
 
           <button
+            (click)="addForkNode()"
+            [disabled]="loading"
+            class="w-full rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-left text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60"
+          >
+            + Fork
+          </button>
+
+          <button
+            (click)="addJoinNode()"
+            [disabled]="loading"
+            class="w-full rounded-2xl border border-fuchsia-200 bg-fuchsia-50 px-4 py-3 text-left text-sm font-semibold text-fuchsia-700 hover:bg-fuchsia-100 disabled:opacity-60"
+          >
+            + Join
+          </button>
+
+          <button
             (click)="addEndNode()"
             [disabled]="loading"
             class="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-left text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
@@ -67,26 +104,51 @@
           </button>
         </div>
 
+        <div class="mt-6">
+          <h3 class="text-sm font-bold text-slate-800">Plantillas prediseñadas</h3>
+          <div class="mt-3 space-y-2">
+            <button
+              (click)="applyLinearTemplate()"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Flujo lineal
+            </button>
+
+            <button
+              (click)="applyConditionalTemplate()"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Flujo condicional
+            </button>
+
+            <button
+              (click)="applyParallelTemplate()"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Flujo paralelo
+            </button>
+
+            <button
+              (click)="applyIterativeTemplate()"
+              class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Flujo iterativo
+            </button>
+          </div>
+        </div>
+
         <div class="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-          Selecciona un nodo para configurarlo en el panel derecho.
-        </div>
-
-        <div
-          *ngIf="message"
-          class="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
-        >
-          {{ message }}
-        </div>
-
-        <div
-          *ngIf="errorMessage"
-          class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {{ errorMessage }}
+          <p class="font-semibold text-slate-700">Tipos de flujo</p>
+          <div class="mt-3 space-y-2">
+            <p><span class="font-semibold">Lineal:</span> Inicio → Actividad → Fin</p>
+            <p><span class="font-semibold">Condicional:</span> Decisión → ramas</p>
+            <p><span class="font-semibold">Paralelo:</span> Fork → varias tareas → Join</p>
+            <p><span class="font-semibold">Iterativo:</span> conecta un nodo hacia uno anterior</p>
+          </div>
         </div>
       </aside>
 
-      <section class="relative min-h-175 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+      <section class="relative min-h-180 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
         <div
           *ngIf="loading"
           class="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/70 text-slate-500"
@@ -94,7 +156,7 @@
           Cargando flujo...
         </div>
 
-        <div #container class="workflow-canvas"></div>
+        <div #container class="workflow-canvas h-180 w-full rounded-2xl bg-slate-50"></div>
       </section>
 
       <aside class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -115,85 +177,32 @@
           </div>
 
           <div>
-            <label class="mb-2 block text-sm font-medium text-slate-700">Funcionario encargado</label>
-            <input
-              [(ngModel)]="nodeForm.assigneeName"
+            <label class="mb-2 block text-sm font-medium text-slate-700">Tipo de nodo</label>
+            <select
+              [(ngModel)]="nodeForm.nodeType"
               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="Ej: Juan Pérez / Responsable de RRHH"
-            />
+            >
+              <option value="start">Inicio</option>
+              <option value="task">Actividad</option>
+              <option value="decision">Decisión</option>
+              <option value="fork">Fork</option>
+              <option value="join">Join</option>
+              <option value="end">Fin</option>
+            </select>
           </div>
 
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-slate-800">Invitar funcionario por link</p>
-                <p class="text-xs text-slate-500">
-                  Genera un enlace para que el invitado entre como funcionario de este nodo.
-                </p>
-              </div>
-
-              <button
-                (click)="generateInviteLink()"
-                [disabled]="creatingInvite"
-                class="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
-              >
-                {{ creatingInvite ? 'Generando...' : 'Generar link' }}
-              </button>
-            </div>
-
-            <div *ngIf="nodeForm.inviteLink" class="mt-4 space-y-2">
-              <label class="block text-xs font-medium text-slate-600">Link generado</label>
-              <div class="flex gap-2">
-                <input
-                  [value]="nodeForm.inviteLink"
-                  readonly
-                  class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
-                />
-                <button
-                  (click)="copyInviteLink()"
-                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                >
-                  Copiar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <label class="flex items-center gap-3 text-sm text-slate-700">
-              <input type="checkbox" [(ngModel)]="nodeForm.requiresConfirmation" />
-              Requiere confirmación del funcionario
-            </label>
-
-            <label class="flex items-center gap-3 text-sm text-slate-700">
-              <input type="checkbox" [(ngModel)]="nodeForm.requiresAttachment" />
-              Requiere adjuntar archivo
-            </label>
-
-            <label class="flex items-center gap-3 text-sm text-slate-700">
-              <input type="checkbox" [(ngModel)]="nodeForm.autoAdvance" />
-              Avanzar automáticamente al siguiente nodo
-            </label>
-          </div>
-
-          <div *ngIf="nodeForm.requiresAttachment">
-            <label class="mb-2 block text-sm font-medium text-slate-700">
-              Tipos de archivo permitidos
-            </label>
-
-            <div class="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <label
-                *ngFor="let option of fileTypeOptions"
-                class="flex items-center gap-2 text-sm text-slate-700"
-              >
-                <input
-                  type="checkbox"
-                  [checked]="isFileTypeSelected(option)"
-                  (change)="toggleFileType(option, $any($event.target).checked)"
-                />
-                {{ option }}
-              </label>
-            </div>
+          <div *ngIf="nodeForm.nodeType === 'task' || nodeForm.nodeType === 'decision'">
+            <label class="mb-2 block text-sm font-medium text-slate-700">Departamento asignado</label>
+            <select
+              [(ngModel)]="nodeForm.departmentId"
+              (change)="onDepartmentChange()"
+              class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              <option value="">Sin departamento</option>
+              <option *ngFor="let department of departments" [value]="department.id">
+                {{ department.name }}
+              </option>
+            </select>
           </div>
 
           <div>
@@ -202,7 +211,7 @@
               [(ngModel)]="nodeForm.instructions"
               rows="4"
               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="Indica qué debe hacer el funcionario en este nodo"
+              placeholder="Indica qué debe hacerse en este nodo"
             ></textarea>
           </div>
 

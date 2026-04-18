@@ -12,25 +12,19 @@ import {
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { finalize, timeout } from 'rxjs';
+import { finalize, forkJoin, timeout } from 'rxjs';
 import { WorkflowService } from '../../services/workflow.service';
-import { WorkflowDiagram } from '../../models/workflow.model';
+import { DepartmentService } from '../../../departments/services/department.service';
+import { Department } from '../../../departments/models/department.model';
 
-type NodeType = 'start' | 'task' | 'decision' | 'end';
+type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
 type WorkflowNodeConfig = {
   label: string;
   nodeType: NodeType;
-  assigneeId?: string;
-  assigneeName?: string;
-  requiresConfirmation: boolean;
-  requiresAttachment: boolean;
-  allowedFileTypes: string[];
-  instructions: string;
-  autoAdvance: boolean;
-  formSchemaId?: string | null;
-  inviteLink?: string;
-  inviteToken?: string;
+  departmentId?: string;
+  departmentName?: string;
+  instructions?: string;
 };
 
 @Component({
@@ -46,24 +40,24 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private workflowService = inject(WorkflowService);
+  private departmentService = inject(DepartmentService);
   private platformId = inject(PLATFORM_ID);
   private cdr = inject(ChangeDetectorRef);
 
   graph: any = null;
 
   projectId = '';
-  loading = true;
-  saving = false;
-  creatingInvite = false;
-  message = '';
-  errorMessage = '';
   workflowId = '';
 
+  loading = true;
+  saving = false;
+  message = '';
+  errorMessage = '';
+
   selectedNode: any = null;
+  departments: Department[] = [];
 
   nodeForm: WorkflowNodeConfig = this.createEmptyNodeConfig('task');
-
-  fileTypeOptions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'];
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
@@ -76,7 +70,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     await this.initGraph();
-    this.loadWorkflow();
+    this.loadInitialData();
   }
 
   ngOnDestroy(): void {
@@ -92,8 +86,8 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     this.graph = new Graph({
       container: this.containerRef.nativeElement,
-      width: this.containerRef.nativeElement.clientWidth || 900,
-      height: this.containerRef.nativeElement.clientHeight || 650,
+      width: this.containerRef.nativeElement.clientWidth || 1000,
+      height: this.containerRef.nativeElement.clientHeight || 680,
       background: {
         color: '#f8fafc',
       },
@@ -122,7 +116,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
         highlight: true,
         allowNode: false,
         allowEdge: false,
-        allowLoop: false,
+        allowLoop: true,
         createEdge() {
           return new Shape.Edge({
             attrs: {
@@ -139,7 +133,6 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
         },
         validateConnection({ sourceCell, targetCell, sourceMagnet, targetMagnet }: any) {
           if (!sourceCell || !targetCell) return false;
-          if (sourceCell.id === targetCell.id) return false;
           if (!sourceMagnet || !targetMagnet) return false;
 
           const sourcePortGroup = sourceMagnet.getAttribute('port-group');
@@ -171,9 +164,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     if (this.graph.bindKey) {
       this.graph.bindKey(['backspace', 'delete'], () => {
-        if (this.loading) {
-          return false;
-        }
+        if (this.loading) return false;
 
         const cells = this.graph.getSelectedCells?.() || [];
         if (cells.length) {
@@ -191,6 +182,42 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     }
   }
 
+  private loadInitialData(): void {
+    this.loading = true;
+    this.message = '';
+    this.errorMessage = '';
+
+    forkJoin({
+      workflow: this.workflowService.getWorkflow(this.projectId, this.workflowId).pipe(timeout(8000)),
+      departments: this.departmentService.getDepartments(this.projectId).pipe(timeout(8000)),
+    })
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+          this.resizeGraph();
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: ({ workflow, departments }) => {
+          this.departments = departments ?? [];
+
+          this.graph.clearCells();
+
+          if (workflow?.nodes?.length || workflow?.edges?.length) {
+            this.graph.fromJSON({
+              nodes: workflow.nodes as any,
+              edges: workflow.edges as any,
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Error cargando workflow:', error);
+          this.errorMessage = 'No se pudo cargar el flujo';
+        },
+      });
+  }
+
   private clearSelection(): void {
     this.selectedNode = null;
     this.nodeForm = this.createEmptyNodeConfig('task');
@@ -201,24 +228,36 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     return {
       label: '',
       nodeType,
-      assigneeId: '',
-      assigneeName: '',
-      requiresConfirmation: false,
-      requiresAttachment: false,
-      allowedFileTypes: [],
+      departmentId: '',
+      departmentName: '',
       instructions: '',
-      autoAdvance: false,
-      formSchemaId: null,
-      inviteLink: '',
-      inviteToken: '',
     };
   }
 
   private getNodeTypeFromShape(shape: string): NodeType {
     if (shape === 'workflow-start') return 'start';
     if (shape === 'workflow-decision') return 'decision';
+    if (shape === 'workflow-fork') return 'fork';
+    if (shape === 'workflow-join') return 'join';
     if (shape === 'workflow-end') return 'end';
     return 'task';
+  }
+
+  private getShapeFromNodeType(nodeType: NodeType): string {
+    switch (nodeType) {
+      case 'start':
+        return 'workflow-start';
+      case 'decision':
+        return 'workflow-decision';
+      case 'fork':
+        return 'workflow-fork';
+      case 'join':
+        return 'workflow-join';
+      case 'end':
+        return 'workflow-end';
+      default:
+        return 'workflow-task';
+    }
   }
 
   private getNodeConfig(node: any): WorkflowNodeConfig {
@@ -292,15 +331,15 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true,
+      true
     );
 
     Graph.registerNode(
       'workflow-task',
       {
         inherit: 'rect',
-        width: 160,
-        height: 56,
+        width: 170,
+        height: 60,
         ports,
         attrs: {
           body: {
@@ -317,7 +356,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true,
+      true
     );
 
     Graph.registerNode(
@@ -341,7 +380,57 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true,
+      true
+    );
+
+    Graph.registerNode(
+      'workflow-fork',
+      {
+        inherit: 'rect',
+        width: 180,
+        height: 18,
+        ports,
+        attrs: {
+          body: {
+            rx: 8,
+            ry: 8,
+            fill: '#ede9fe',
+            stroke: '#7c3aed',
+            strokeWidth: 2,
+          },
+          label: {
+            fill: '#5b21b6',
+            fontSize: 12,
+            fontWeight: 700,
+          },
+        },
+      },
+      true
+    );
+
+    Graph.registerNode(
+      'workflow-join',
+      {
+        inherit: 'rect',
+        width: 180,
+        height: 18,
+        ports,
+        attrs: {
+          body: {
+            rx: 8,
+            ry: 8,
+            fill: '#fae8ff',
+            stroke: '#c026d3',
+            strokeWidth: 2,
+          },
+          label: {
+            fill: '#a21caf',
+            fontSize: 12,
+            fontWeight: 700,
+          },
+        },
+      },
+      true
     );
 
     Graph.registerNode(
@@ -366,58 +455,18 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true,
+      true
     );
   }
 
   private resizeGraph(): void {
     setTimeout(() => {
       this.graph?.resize?.(
-        this.containerRef.nativeElement.clientWidth || 900,
-        this.containerRef.nativeElement.clientHeight || 650,
+        this.containerRef?.nativeElement?.clientWidth || 1000,
+        this.containerRef?.nativeElement?.clientHeight || 680
       );
       this.graph?.centerContent?.();
     }, 0);
-  }
-
-  private loadWorkflow(): void {
-    if (!this.graph) {
-      this.loading = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
-    this.loading = true;
-    this.message = '';
-    this.errorMessage = '';
-    this.cdr.detectChanges();
-
-    this.workflowService
-      .getWorkflow(this.projectId, this.workflowId)
-      .pipe(
-        timeout(5000),
-        finalize(() => {
-          this.loading = false;
-          this.resizeGraph();
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (diagram) => {
-          this.graph.clearCells();
-
-          if (diagram?.nodes?.length || diagram?.edges?.length) {
-            this.graph.fromJSON({
-              nodes: diagram.nodes as any,
-              edges: diagram.edges as any,
-            });
-          }
-        },
-        error: (error) => {
-          console.error('Error cargando workflow:', error);
-          this.errorMessage = 'No se pudo cargar el flujo';
-        },
-      });
   }
 
   private getNodeLabel(node: any): string {
@@ -431,123 +480,247 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     };
   }
 
-  isFileTypeSelected(type: string): boolean {
-    return this.nodeForm.allowedFileTypes.includes(type);
-  }
-
-  toggleFileType(type: string, checked: boolean): void {
-    const current = new Set(this.nodeForm.allowedFileTypes);
-
-    if (checked) {
-      current.add(type);
-    } else {
-      current.delete(type);
-    }
-
-    this.nodeForm.allowedFileTypes = Array.from(current);
-  }
-
-  saveSelectedNodeConfig(): void {
-    if (!this.selectedNode) {
-      return;
-    }
-
-    const cleanLabel = this.nodeForm.label.trim() || 'Sin nombre';
-
-    const payload: WorkflowNodeConfig = {
-      ...this.nodeForm,
-      label: cleanLabel,
-      allowedFileTypes: this.nodeForm.requiresAttachment ? [...this.nodeForm.allowedFileTypes] : [],
+  private buildEdge(id: string, sourceCell: string, targetCell: string) {
+    return {
+      id,
+      shape: 'edge',
+      source: { cell: sourceCell, port: 'out-1' },
+      target: { cell: targetCell, port: 'in-1' },
+      attrs: {
+        line: {
+          stroke: '#64748b',
+          strokeWidth: 2,
+          targetMarker: {
+            name: 'classic',
+            size: 8,
+          },
+        },
+      },
     };
+  }
 
-    this.selectedNode.attr('label/text', cleanLabel);
-    this.selectedNode.setData(payload);
+  private replaceWithTemplate(nodes: any[], edges: any[], message: string): void {
+    if (!this.graph) return;
 
-    this.nodeForm = { ...payload };
+    const confirmed =
+      !this.graph.getCells || this.graph.getCells().length === 0
+        ? true
+        : window.confirm('Esto reemplazará el diagrama actual. ¿Deseas continuar?');
 
-    this.message = 'Configuración del nodo actualizada';
+    if (!confirmed) return;
+
+    this.graph.clearCells();
+    this.graph.fromJSON({ nodes, edges });
+    this.clearSelection();
+    this.message = message;
     this.errorMessage = '';
+    this.resizeGraph();
     this.cdr.detectChanges();
   }
 
-  async copyInviteLink(): Promise<void> {
-    if (!this.nodeForm.inviteLink) {
-      return;
-    }
+  applyLinearTemplate(): void {
+    const nodes = [
+      {
+        id: 'linear-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 120,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'linear-task-1',
+        shape: 'workflow-task',
+        x: 320,
+        y: 110,
+        label: 'Actividad',
+        data: this.buildNodePayload('task', 'Actividad'),
+      },
+      {
+        id: 'linear-end',
+        shape: 'workflow-end',
+        x: 620,
+        y: 120,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
+    ];
 
-    try {
-      await navigator.clipboard.writeText(this.nodeForm.inviteLink);
-      this.message = 'Link copiado al portapapeles';
-      this.errorMessage = '';
-      this.cdr.detectChanges();
-    } catch {
-      this.errorMessage = 'No se pudo copiar el link';
-      this.cdr.detectChanges();
-    }
+    const edges = [
+      this.buildEdge('linear-edge-1', 'linear-start', 'linear-task-1'),
+      this.buildEdge('linear-edge-2', 'linear-task-1', 'linear-end'),
+    ];
+
+    this.replaceWithTemplate(nodes, edges, 'Plantilla lineal aplicada');
   }
 
-  generateInviteLink(): void {
-    if (!this.selectedNode) {
-      return;
-    }
+  applyConditionalTemplate(): void {
+    const nodes = [
+      {
+        id: 'cond-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 180,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'cond-decision',
+        shape: 'workflow-decision',
+        x: 300,
+        y: 140,
+        label: 'Decisión',
+        data: this.buildNodePayload('decision', 'Decisión'),
+      },
+      {
+        id: 'cond-task-yes',
+        shape: 'workflow-task',
+        x: 560,
+        y: 40,
+        label: 'Ruta Sí',
+        data: this.buildNodePayload('task', 'Ruta Sí'),
+      },
+      {
+        id: 'cond-task-no',
+        shape: 'workflow-task',
+        x: 560,
+        y: 250,
+        label: 'Ruta No',
+        data: this.buildNodePayload('task', 'Ruta No'),
+      },
+      {
+        id: 'cond-end',
+        shape: 'workflow-end',
+        x: 860,
+        y: 180,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
+    ];
 
-    this.creatingInvite = true;
-    this.message = '';
-    this.errorMessage = '';
-    this.cdr.detectChanges();
+    const edges = [
+      this.buildEdge('cond-edge-1', 'cond-start', 'cond-decision'),
+      this.buildEdge('cond-edge-2', 'cond-decision', 'cond-task-yes'),
+      this.buildEdge('cond-edge-3', 'cond-decision', 'cond-task-no'),
+      this.buildEdge('cond-edge-4', 'cond-task-yes', 'cond-end'),
+      this.buildEdge('cond-edge-5', 'cond-task-no', 'cond-end'),
+    ];
 
-    const nodeId = this.selectedNode.id;
-
-    this.workflowService
-      .createNodeInviteLink(this.projectId, nodeId)
-      .pipe(
-        timeout(8000),
-        finalize(() => {
-          this.creatingInvite = false;
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (res: any) => {
-          const payload: WorkflowNodeConfig = {
-            ...this.nodeForm,
-            inviteLink: res?.inviteLink || '',
-            inviteToken: res?.token || '',
-            assigneeId: res?.userId || this.nodeForm.assigneeId,
-            assigneeName: res?.assigneeName || this.nodeForm.assigneeName,
-          };
-
-          this.nodeForm = payload;
-          this.selectedNode.setData(payload);
-
-          this.message = 'Link de invitación generado';
-          this.errorMessage = '';
-          this.cdr.detectChanges();
-        },
-        error: (error) => {
-          console.error('Error generando invitación:', error);
-          this.errorMessage = 'No se pudo generar el link de invitación';
-          this.cdr.detectChanges();
-        },
-      });
+    this.replaceWithTemplate(nodes, edges, 'Plantilla condicional aplicada');
   }
 
-  deleteSelectedNode(): void {
-    if (!this.selectedNode || this.loading) {
-      return;
-    }
+  applyParallelTemplate(): void {
+    const nodes = [
+      {
+        id: 'parallel-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 180,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'parallel-fork',
+        shape: 'workflow-fork',
+        x: 300,
+        y: 190,
+        label: 'Fork',
+        data: this.buildNodePayload('fork', 'Fork'),
+      },
+      {
+        id: 'parallel-task-1',
+        shape: 'workflow-task',
+        x: 560,
+        y: 60,
+        label: 'Actividad A',
+        data: this.buildNodePayload('task', 'Actividad A'),
+      },
+      {
+        id: 'parallel-task-2',
+        shape: 'workflow-task',
+        x: 560,
+        y: 300,
+        label: 'Actividad B',
+        data: this.buildNodePayload('task', 'Actividad B'),
+      },
+      {
+        id: 'parallel-join',
+        shape: 'workflow-join',
+        x: 860,
+        y: 190,
+        label: 'Join',
+        data: this.buildNodePayload('join', 'Join'),
+      },
+      {
+        id: 'parallel-end',
+        shape: 'workflow-end',
+        x: 1120,
+        y: 180,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
+    ];
 
-    this.graph.removeCell(this.selectedNode);
-    this.selectedNode = null;
-    this.nodeForm = this.createEmptyNodeConfig('task');
-    this.message = 'Nodo eliminado';
-    this.errorMessage = '';
-    this.cdr.detectChanges();
+    const edges = [
+      this.buildEdge('parallel-edge-1', 'parallel-start', 'parallel-fork'),
+      this.buildEdge('parallel-edge-2', 'parallel-fork', 'parallel-task-1'),
+      this.buildEdge('parallel-edge-3', 'parallel-fork', 'parallel-task-2'),
+      this.buildEdge('parallel-edge-4', 'parallel-task-1', 'parallel-join'),
+      this.buildEdge('parallel-edge-5', 'parallel-task-2', 'parallel-join'),
+      this.buildEdge('parallel-edge-6', 'parallel-join', 'parallel-end'),
+    ];
+
+    this.replaceWithTemplate(nodes, edges, 'Plantilla paralela aplicada');
+  }
+
+  applyIterativeTemplate(): void {
+    const nodes = [
+      {
+        id: 'iter-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 180,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'iter-task',
+        shape: 'workflow-task',
+        x: 320,
+        y: 170,
+        label: 'Actividad',
+        data: this.buildNodePayload('task', 'Actividad'),
+      },
+      {
+        id: 'iter-decision',
+        shape: 'workflow-decision',
+        x: 600,
+        y: 140,
+        label: '¿Repetir?',
+        data: this.buildNodePayload('decision', '¿Repetir?'),
+      },
+      {
+        id: 'iter-end',
+        shape: 'workflow-end',
+        x: 900,
+        y: 180,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
+    ];
+
+    const edges = [
+      this.buildEdge('iter-edge-1', 'iter-start', 'iter-task'),
+      this.buildEdge('iter-edge-2', 'iter-task', 'iter-decision'),
+      this.buildEdge('iter-edge-3', 'iter-decision', 'iter-end'),
+      this.buildEdge('iter-edge-4', 'iter-decision', 'iter-task'),
+    ];
+
+    this.replaceWithTemplate(nodes, edges, 'Plantilla iterativa aplicada');
   }
 
   addStartNode(): void {
     if (this.loading || !this.graph) return;
-
     this.graph.addNode({
       shape: 'workflow-start',
       x: 80,
@@ -559,10 +732,9 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   addTaskNode(): void {
     if (this.loading || !this.graph) return;
-
     this.graph.addNode({
       shape: 'workflow-task',
-      x: 260,
+      x: 280,
       y: 80,
       label: 'Actividad',
       data: this.buildNodePayload('task', 'Actividad'),
@@ -571,32 +743,97 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   addDecisionNode(): void {
     if (this.loading || !this.graph) return;
-
     this.graph.addNode({
       shape: 'workflow-decision',
-      x: 480,
-      y: 80,
+      x: 520,
+      y: 60,
       label: 'Decisión',
       data: this.buildNodePayload('decision', 'Decisión'),
     });
   }
 
+  addForkNode(): void {
+    if (this.loading || !this.graph) return;
+    this.graph.addNode({
+      shape: 'workflow-fork',
+      x: 720,
+      y: 90,
+      label: 'Fork',
+      data: this.buildNodePayload('fork', 'Fork'),
+    });
+  }
+
+  addJoinNode(): void {
+    if (this.loading || !this.graph) return;
+    this.graph.addNode({
+      shape: 'workflow-join',
+      x: 720,
+      y: 180,
+      label: 'Join',
+      data: this.buildNodePayload('join', 'Join'),
+    });
+  }
+
   addEndNode(): void {
     if (this.loading || !this.graph) return;
-
     this.graph.addNode({
       shape: 'workflow-end',
-      x: 700,
+      x: 960,
       y: 80,
       label: 'Fin',
       data: this.buildNodePayload('end', 'Fin'),
     });
   }
 
-  saveWorkflow(): void {
-    if (this.loading || !this.graph) {
-      return;
+  openDepartments(): void {
+    this.router.navigate(['/projects', this.projectId, 'departments']);
+  }
+
+  onDepartmentChange(): void {
+    const department = this.departments.find((item) => item.id === this.nodeForm.departmentId);
+    this.nodeForm.departmentName = department?.name || '';
+  }
+
+  saveSelectedNodeConfig(): void {
+    if (!this.selectedNode) return;
+
+    const cleanLabel = this.nodeForm.label.trim() || 'Sin nombre';
+    const nodeType = this.nodeForm.nodeType;
+    const nextShape = this.getShapeFromNodeType(nodeType);
+
+    this.selectedNode.attr('label/text', cleanLabel);
+    this.selectedNode.setData({
+      ...this.nodeForm,
+      label: cleanLabel,
+    });
+
+    if (this.selectedNode.shape !== nextShape) {
+      this.selectedNode.shape = nextShape;
     }
+
+    this.nodeForm = {
+      ...this.nodeForm,
+      label: cleanLabel,
+    };
+
+    this.message = 'Nodo actualizado correctamente';
+    this.errorMessage = '';
+    this.cdr.detectChanges();
+  }
+
+  deleteSelectedNode(): void {
+    if (!this.selectedNode || this.loading) return;
+
+    this.graph.removeCell(this.selectedNode);
+    this.selectedNode = null;
+    this.nodeForm = this.createEmptyNodeConfig('task');
+    this.message = 'Nodo eliminado';
+    this.errorMessage = '';
+    this.cdr.detectChanges();
+  }
+
+  saveWorkflow(): void {
+    if (this.loading || !this.graph) return;
 
     this.saving = true;
     this.message = '';
@@ -611,7 +848,27 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       edges: cells.filter((c) => !!c.source && !!c.target) as any,
     };
 
-    this.workflowService.saveWorkflow(this.projectId, this.workflowId, payload);
+    this.workflowService
+      .saveWorkflow(this.projectId, this.workflowId, payload)
+      .pipe(
+        timeout(8000),
+        finalize(() => {
+          this.saving = false;
+          this.cdr.detectChanges();
+        })
+      )
+      .subscribe({
+        next: (res) => {
+          this.message = res?.message || 'Flujo guardado correctamente';
+          this.errorMessage = '';
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error guardando workflow:', error);
+          this.errorMessage = 'No se pudo guardar el flujo';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   goBack(): void {

@@ -64,7 +64,7 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   openDepartments(): void {
-    alert('Aquí irá la gestión de departamentos');
+    this.router.navigate(['/projects', this.projectId, 'departments']);
   }
 
   openCases(): void {
