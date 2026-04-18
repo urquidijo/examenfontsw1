@@ -1,15 +1,13 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../auth/services/auth.service';
 import { ProjectService } from '../projects/services/project.service';
 import { ProjectSummary } from '../projects/models/project.model';
-
-type InviteFormType = FormGroup<{
-  email: ReturnType<FormBuilder['nonNullable']['control']>;
-}>;
+import { ProjectUserService } from '../projects/services/project-user.service';
+import { ProjectInvitation } from '../projects/models/project-user.model';
 
 @Component({
   selector: 'app-dashboard',
@@ -20,6 +18,7 @@ type InviteFormType = FormGroup<{
 export class DashboardComponent implements OnInit {
   private authService = inject(AuthService);
   private projectService = inject(ProjectService);
+  private projectUserService = inject(ProjectUserService);
   private router = inject(Router);
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
@@ -30,31 +29,36 @@ export class DashboardComponent implements OnInit {
   ownedProjects: ProjectSummary[] = [];
   sharedProjects: ProjectSummary[] = [];
 
+  invitations: ProjectInvitation[] = [];
+
   activeTab: 'all' | 'owned' | 'shared' = 'all';
 
   loadingProjects = false;
+  loadingInvitations = false;
   creatingProject = false;
-  invitingProjectId: string | null = null;
   deletingProjectId: string | null = null;
+  processingInvitationId: string | null = null;
+
+  showCreateForm = false;
 
   projectErrorMessage = '';
   projectSuccessMessage = '';
-  inviteMessages: Record<string, string> = {};
+  invitationErrorMessage = '';
+  invitationSuccessMessage = '';
 
   projectForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
     description: [''],
   });
 
-  inviteForms: Record<string, InviteFormType> = {};
-
   ngOnInit(): void {
     this.user = this.authService.getUser();
-    this.loadProjects();
+    this.loadDashboardData();
   }
 
-  openDesigner(projectId: string): void {
-    this.router.navigate(['/projects', projectId, 'designer']);
+  loadDashboardData(): void {
+    this.loadProjects();
+    this.loadInvitations();
   }
 
   loadProjects(): void {
@@ -70,7 +74,6 @@ export class DashboardComponent implements OnInit {
         this.myProjects = my ?? [];
         this.ownedProjects = owned ?? [];
         this.sharedProjects = shared ?? [];
-        this.ensureInviteForms(this.ownedProjects);
         this.loadingProjects = false;
         this.cdr.detectChanges();
       },
@@ -82,14 +85,40 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  ensureInviteForms(projects: ProjectSummary[]): void {
-    for (const project of projects) {
-      if (!this.inviteForms[project.projectId]) {
-        this.inviteForms[project.projectId] = this.fb.nonNullable.group({
-          email: ['', [Validators.required, Validators.email]],
-        }) as InviteFormType;
-      }
+  loadInvitations(): void {
+    this.loadingInvitations = true;
+    this.invitationErrorMessage = '';
+
+    this.projectUserService.getMyPendingInvitations().subscribe({
+      next: (invitations) => {
+        this.invitations = invitations ?? [];
+        this.loadingInvitations = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.loadingInvitations = false;
+        this.invitationErrorMessage =
+          error?.error?.message || 'No se pudieron cargar las invitaciones';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  toggleCreateForm(): void {
+    this.showCreateForm = !this.showCreateForm;
+    this.projectErrorMessage = '';
+    this.projectSuccessMessage = '';
+
+    if (!this.showCreateForm) {
+      this.projectForm.reset({
+        name: '',
+        description: '',
+      });
     }
+  }
+
+  openProject(projectId: string): void {
+    this.router.navigate(['/projects', projectId]);
   }
 
   private addProjectToLists(project: ProjectSummary): void {
@@ -97,7 +126,6 @@ export class DashboardComponent implements OnInit {
 
     if (project.role === 'ADMINISTRADOR') {
       this.ownedProjects = [project, ...this.ownedProjects];
-      this.ensureInviteForms([project]);
     }
 
     if (project.role === 'FUNCIONARIO') {
@@ -111,14 +139,6 @@ export class DashboardComponent implements OnInit {
     this.myProjects = this.myProjects.filter((project) => project.projectId !== projectId);
     this.ownedProjects = this.ownedProjects.filter((project) => project.projectId !== projectId);
     this.sharedProjects = this.sharedProjects.filter((project) => project.projectId !== projectId);
-
-    delete this.inviteForms[projectId];
-    delete this.inviteMessages[projectId];
-
-    if (this.invitingProjectId === projectId) {
-      this.invitingProjectId = null;
-    }
-
     this.cdr.detectChanges();
   }
 
@@ -157,47 +177,12 @@ export class DashboardComponent implements OnInit {
           description: '',
         });
 
+        this.showCreateForm = false;
         this.cdr.detectChanges();
       },
       error: (error) => {
         this.creatingProject = false;
         this.projectErrorMessage = error?.error?.message || 'No se pudo crear el proyecto';
-        this.cdr.detectChanges();
-      },
-    });
-  }
-
-  toggleInvite(projectId: string): void {
-    this.invitingProjectId = this.invitingProjectId === projectId ? null : projectId;
-    this.inviteMessages[projectId] = '';
-    this.cdr.detectChanges();
-  }
-
-  inviteUser(projectId: string): void {
-    const form = this.inviteForms[projectId];
-
-    if (!form) {
-      return;
-    }
-
-    if (form.invalid) {
-      form.markAllAsTouched();
-      return;
-    }
-
-    const email = String(form.controls.email.value ?? '');
-
-    this.inviteMessages[projectId] = 'Enviando invitación...';
-    this.cdr.detectChanges();
-
-    this.projectService.inviteUser(projectId, { email }).subscribe({
-      next: (response) => {
-        this.inviteMessages[projectId] = response?.message || 'Usuario invitado correctamente';
-        form.reset({ email: '' });
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        this.inviteMessages[projectId] = error?.error?.message || 'No se pudo invitar al usuario';
         this.cdr.detectChanges();
       },
     });
@@ -225,6 +210,51 @@ export class DashboardComponent implements OnInit {
       error: (error) => {
         this.deletingProjectId = null;
         this.projectErrorMessage = error?.error?.message || 'No se pudo eliminar el proyecto';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  acceptInvitation(invitationId: string): void {
+    this.processingInvitationId = invitationId;
+    this.invitationErrorMessage = '';
+    this.invitationSuccessMessage = '';
+    this.cdr.detectChanges();
+
+    this.projectUserService.acceptInvitation(invitationId).subscribe({
+      next: (response) => {
+        this.processingInvitationId = null;
+        this.invitationSuccessMessage = response?.message || 'Invitación aceptada correctamente';
+        this.invitations = this.invitations.filter((item) => item.id !== invitationId);
+        this.loadProjects();
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.processingInvitationId = null;
+        this.invitationErrorMessage =
+          error?.error?.message || 'No se pudo aceptar la invitación';
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  rejectInvitation(invitationId: string): void {
+    this.processingInvitationId = invitationId;
+    this.invitationErrorMessage = '';
+    this.invitationSuccessMessage = '';
+    this.cdr.detectChanges();
+
+    this.projectUserService.rejectInvitation(invitationId).subscribe({
+      next: (response) => {
+        this.processingInvitationId = null;
+        this.invitationSuccessMessage = response?.message || 'Invitación rechazada correctamente';
+        this.invitations = this.invitations.filter((item) => item.id !== invitationId);
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.processingInvitationId = null;
+        this.invitationErrorMessage =
+          error?.error?.message || 'No se pudo rechazar la invitación';
         this.cdr.detectChanges();
       },
     });

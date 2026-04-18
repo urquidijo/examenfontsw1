@@ -7,7 +7,7 @@ import {
   OnInit,
   PLATFORM_ID,
   ViewChild,
-  inject
+  inject,
 } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -38,7 +38,7 @@ type WorkflowNodeConfig = {
   standalone: true,
   imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './workflow-designer.component.html',
-  styleUrl: './workflow-designer.component.css'
+  styleUrl: './workflow-designer.component.css',
 })
 export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('container', { static: false }) containerRef!: ElementRef<HTMLDivElement>;
@@ -57,6 +57,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   creatingInvite = false;
   message = '';
   errorMessage = '';
+  workflowId = '';
 
   selectedNode: any = null;
 
@@ -65,7 +66,8 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   fileTypeOptions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'];
 
   ngOnInit(): void {
-    this.projectId = this.route.snapshot.paramMap.get('id') || '';
+    this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
+    this.workflowId = this.route.snapshot.paramMap.get('workflowId') || '';
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -93,22 +95,22 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       width: this.containerRef.nativeElement.clientWidth || 900,
       height: this.containerRef.nativeElement.clientHeight || 650,
       background: {
-        color: '#f8fafc'
+        color: '#f8fafc',
       },
       grid: {
         visible: true,
         type: 'dot',
         args: {
           color: '#cbd5e1',
-          thickness: 1
-        }
+          thickness: 1,
+        },
       },
       panning: true,
       mousewheel: {
         enabled: true,
         modifiers: ['ctrl', 'meta'],
         minScale: 0.5,
-        maxScale: 2
+        maxScale: 2,
       },
       connecting: {
         router: 'manhattan',
@@ -129,10 +131,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
                 strokeWidth: 2,
                 targetMarker: {
                   name: 'classic',
-                  size: 8
-                }
-              }
-            }
+                  size: 8,
+                },
+              },
+            },
           });
         },
         validateConnection({ sourceCell, targetCell, sourceMagnet, targetMagnet }: any) {
@@ -144,11 +146,11 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           const targetPortGroup = targetMagnet.getAttribute('port-group');
 
           return sourcePortGroup === 'out' && targetPortGroup === 'in';
-        }
+        },
       },
       interacting: {
-        edgeLabelMovable: false
-      }
+        edgeLabelMovable: false,
+      },
     });
 
     if (this.graph.enableSelection) {
@@ -208,7 +210,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       autoAdvance: false,
       formSchemaId: null,
       inviteLink: '',
-      inviteToken: ''
+      inviteToken: '',
     };
   }
 
@@ -226,7 +228,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     return {
       ...this.createEmptyNodeConfig(nodeType),
       ...data,
-      label: data?.label || this.getNodeLabel(node) || ''
+      label: data?.label || this.getNodeLabel(node) || '',
     };
   }
 
@@ -241,9 +243,9 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
               magnet: 'passive',
               stroke: '#475569',
               strokeWidth: 2,
-              fill: '#ffffff'
-            }
-          }
+              fill: '#ffffff',
+            },
+          },
         },
         out: {
           position: 'bottom',
@@ -253,15 +255,15 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
               magnet: true,
               stroke: '#475569',
               strokeWidth: 2,
-              fill: '#ffffff'
-            }
-          }
-        }
+              fill: '#ffffff',
+            },
+          },
+        },
       },
       items: [
         { id: 'in-1', group: 'in' },
-        { id: 'out-1', group: 'out' }
-      ]
+        { id: 'out-1', group: 'out' },
+      ],
     };
   }
 
@@ -281,16 +283,16 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
             ry: 24,
             fill: '#dcfce7',
             stroke: '#16a34a',
-            strokeWidth: 2
+            strokeWidth: 2,
           },
           label: {
             fill: '#166534',
             fontSize: 14,
-            fontWeight: 700
-          }
-        }
+            fontWeight: 700,
+          },
+        },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -306,16 +308,16 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
             ry: 16,
             fill: '#dbeafe',
             stroke: '#2563eb',
-            strokeWidth: 2
+            strokeWidth: 2,
           },
           label: {
             fill: '#1e3a8a',
             fontSize: 14,
-            fontWeight: 600
-          }
-        }
+            fontWeight: 600,
+          },
+        },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -330,16 +332,16 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
             refPoints: '0,10 10,0 20,10 10,20',
             fill: '#fef3c7',
             stroke: '#d97706',
-            strokeWidth: 2
+            strokeWidth: 2,
           },
           label: {
             fill: '#92400e',
             fontSize: 14,
-            fontWeight: 700
-          }
-        }
+            fontWeight: 700,
+          },
+        },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -355,16 +357,16 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
             ry: 24,
             fill: '#fee2e2',
             stroke: '#dc2626',
-            strokeWidth: 2
+            strokeWidth: 2,
           },
           label: {
             fill: '#991b1b',
             fontSize: 14,
-            fontWeight: 700
-          }
-        }
+            fontWeight: 700,
+          },
+        },
       },
-      true
+      true,
     );
   }
 
@@ -372,7 +374,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     setTimeout(() => {
       this.graph?.resize?.(
         this.containerRef.nativeElement.clientWidth || 900,
-        this.containerRef.nativeElement.clientHeight || 650
+        this.containerRef.nativeElement.clientHeight || 650,
       );
       this.graph?.centerContent?.();
     }, 0);
@@ -390,43 +392,42 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     this.errorMessage = '';
     this.cdr.detectChanges();
 
-    this.workflowService.getWorkflow(this.projectId).pipe(
-      timeout(5000),
-      finalize(() => {
-        this.loading = false;
-        this.resizeGraph();
-        this.cdr.detectChanges();
-      })
-    ).subscribe({
-      next: (diagram) => {
-        this.graph.clearCells();
+    this.workflowService
+      .getWorkflow(this.projectId, this.workflowId)
+      .pipe(
+        timeout(5000),
+        finalize(() => {
+          this.loading = false;
+          this.resizeGraph();
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (diagram) => {
+          this.graph.clearCells();
 
-        if (diagram?.nodes?.length || diagram?.edges?.length) {
-          this.graph.fromJSON({
-            nodes: diagram.nodes as any,
-            edges: diagram.edges as any
-          });
-        }
-      },
-      error: (error) => {
-        console.error('Error cargando workflow:', error);
-        this.errorMessage = 'No se pudo cargar el flujo';
-      }
-    });
+          if (diagram?.nodes?.length || diagram?.edges?.length) {
+            this.graph.fromJSON({
+              nodes: diagram.nodes as any,
+              edges: diagram.edges as any,
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Error cargando workflow:', error);
+          this.errorMessage = 'No se pudo cargar el flujo';
+        },
+      });
   }
 
   private getNodeLabel(node: any): string {
-    return (
-      node?.attr?.('label/text') ||
-      node?.getAttrs?.()?.label?.text ||
-      ''
-    );
+    return node?.attr?.('label/text') || node?.getAttrs?.()?.label?.text || '';
   }
 
   private buildNodePayload(nodeType: NodeType, label: string): WorkflowNodeConfig {
     return {
       ...this.createEmptyNodeConfig(nodeType),
-      label
+      label,
     };
   }
 
@@ -456,9 +457,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     const payload: WorkflowNodeConfig = {
       ...this.nodeForm,
       label: cleanLabel,
-      allowedFileTypes: this.nodeForm.requiresAttachment
-        ? [...this.nodeForm.allowedFileTypes]
-        : []
+      allowedFileTypes: this.nodeForm.requiresAttachment ? [...this.nodeForm.allowedFileTypes] : [],
     };
 
     this.selectedNode.attr('label/text', cleanLabel);
@@ -499,35 +498,38 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     const nodeId = this.selectedNode.id;
 
-    this.workflowService.createNodeInviteLink(this.projectId, nodeId).pipe(
-      timeout(8000),
-      finalize(() => {
-        this.creatingInvite = false;
-        this.cdr.detectChanges();
-      })
-    ).subscribe({
-      next: (res: any) => {
-        const payload: WorkflowNodeConfig = {
-          ...this.nodeForm,
-          inviteLink: res?.inviteLink || '',
-          inviteToken: res?.token || '',
-          assigneeId: res?.userId || this.nodeForm.assigneeId,
-          assigneeName: res?.assigneeName || this.nodeForm.assigneeName
-        };
+    this.workflowService
+      .createNodeInviteLink(this.projectId, nodeId)
+      .pipe(
+        timeout(8000),
+        finalize(() => {
+          this.creatingInvite = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (res: any) => {
+          const payload: WorkflowNodeConfig = {
+            ...this.nodeForm,
+            inviteLink: res?.inviteLink || '',
+            inviteToken: res?.token || '',
+            assigneeId: res?.userId || this.nodeForm.assigneeId,
+            assigneeName: res?.assigneeName || this.nodeForm.assigneeName,
+          };
 
-        this.nodeForm = payload;
-        this.selectedNode.setData(payload);
+          this.nodeForm = payload;
+          this.selectedNode.setData(payload);
 
-        this.message = 'Link de invitación generado';
-        this.errorMessage = '';
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        console.error('Error generando invitación:', error);
-        this.errorMessage = 'No se pudo generar el link de invitación';
-        this.cdr.detectChanges();
-      }
-    });
+          this.message = 'Link de invitación generado';
+          this.errorMessage = '';
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error generando invitación:', error);
+          this.errorMessage = 'No se pudo generar el link de invitación';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   deleteSelectedNode(): void {
@@ -551,7 +553,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       x: 80,
       y: 80,
       label: 'Inicio',
-      data: this.buildNodePayload('start', 'Inicio')
+      data: this.buildNodePayload('start', 'Inicio'),
     });
   }
 
@@ -563,7 +565,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       x: 260,
       y: 80,
       label: 'Actividad',
-      data: this.buildNodePayload('task', 'Actividad')
+      data: this.buildNodePayload('task', 'Actividad'),
     });
   }
 
@@ -575,7 +577,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       x: 480,
       y: 80,
       label: 'Decisión',
-      data: this.buildNodePayload('decision', 'Decisión')
+      data: this.buildNodePayload('decision', 'Decisión'),
     });
   }
 
@@ -587,7 +589,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       x: 700,
       y: 80,
       label: 'Fin',
-      data: this.buildNodePayload('end', 'Fin')
+      data: this.buildNodePayload('end', 'Fin'),
     });
   }
 
@@ -604,32 +606,15 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     const json = this.graph.toJSON();
     const cells = (json.cells || []) as any[];
 
-    const payload: WorkflowDiagram = {
-      projectId: this.projectId,
+    const payload = {
       nodes: cells.filter((c) => !c.source) as any,
-      edges: cells.filter((c) => !!c.source && !!c.target) as any
+      edges: cells.filter((c) => !!c.source && !!c.target) as any,
     };
 
-    this.workflowService.saveWorkflow(this.projectId, payload).pipe(
-      timeout(8000),
-      finalize(() => {
-        this.saving = false;
-        this.cdr.detectChanges();
-      })
-    ).subscribe({
-      next: (res) => {
-        this.message = res?.message || 'Flujo guardado correctamente';
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        console.error('Error guardando workflow:', error);
-        this.errorMessage = 'No se pudo guardar el flujo';
-        this.cdr.detectChanges();
-      }
-    });
+    this.workflowService.saveWorkflow(this.projectId, this.workflowId, payload);
   }
 
   goBack(): void {
-    this.router.navigate(['/dashboard']);
+    this.router.navigate(['/projects', this.projectId, 'workflows']);
   }
 }

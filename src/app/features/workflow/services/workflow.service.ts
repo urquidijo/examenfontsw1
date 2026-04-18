@@ -2,7 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { WorkflowDiagram } from '../models/workflow.model';
+import {
+  CreateWorkflowRequest,
+  SaveWorkflowRequest,
+  WorkflowDiagram,
+  WorkflowSummary,
+} from '../models/workflow.model';
 
 @Injectable({
   providedIn: 'root',
@@ -13,12 +18,35 @@ export class WorkflowService {
   private projectsApiUrl = `${environment.apiUrl}/projects`;
   private nodeInvitesApiUrl = `${environment.apiUrl}/node-invites`;
 
-  getWorkflow(projectId: string): Observable<WorkflowDiagram> {
-    return this.http.get<WorkflowDiagram>(`${this.projectsApiUrl}/${projectId}/workflow`);
+  getWorkflows(projectId: string): Observable<WorkflowSummary[]> {
+    return this.http.get<WorkflowSummary[]>(`${this.projectsApiUrl}/${projectId}/workflows`);
   }
 
-  saveWorkflow(projectId: string, data: WorkflowDiagram): Observable<{ message: string }> {
-    return this.http.put<{ message: string }>(`${this.projectsApiUrl}/${projectId}/workflow`, data);
+  createWorkflow(projectId: string, data: CreateWorkflowRequest): Observable<WorkflowSummary> {
+    return this.http.post<WorkflowSummary>(`${this.projectsApiUrl}/${projectId}/workflows`, data);
+  }
+
+  getWorkflow(projectId: string, workflowId: string): Observable<WorkflowDiagram> {
+    return this.http.get<WorkflowDiagram>(
+      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`
+    );
+  }
+
+  saveWorkflow(
+    projectId: string,
+    workflowId: string,
+    data: SaveWorkflowRequest
+  ): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(
+      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`,
+      data
+    );
+  }
+
+  deleteWorkflow(projectId: string, workflowId: string): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(
+      `${this.projectsApiUrl}/${projectId}/workflows/${workflowId}`
+    );
   }
 
   createNodeInviteLink(projectId: string, nodeId: string, nodeLabel?: string) {

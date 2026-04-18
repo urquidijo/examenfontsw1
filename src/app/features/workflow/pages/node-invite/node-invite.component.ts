@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
+import { timeout } from 'rxjs';
 import { WorkflowService } from '../../services/workflow.service';
 
 @Component({
@@ -24,6 +25,13 @@ export class NodeInviteComponent implements OnInit {
 
   ngOnInit(): void {
     this.token = this.route.snapshot.paramMap.get('token') || '';
+
+    if (!this.token) {
+      this.loading = false;
+      this.errorMessage = 'Token de invitación inválido';
+      return;
+    }
+
     this.validateInvite();
   }
 
@@ -31,38 +39,45 @@ export class NodeInviteComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
 
-    this.workflowService.validateInvite(this.token).subscribe({
-      next: (res) => {
-        this.inviteData = res;
-        this.loading = false;
-      },
-      error: () => {
-        this.errorMessage = 'Invitación inválida o expirada';
-        this.loading = false;
-      },
-    });
+    this.workflowService.validateInvite(this.token)
+      .pipe(timeout(8000))
+      .subscribe({
+        next: (res) => {
+          this.inviteData = res;
+          this.loading = false;
+        },
+        error: (error) => {
+          console.error('Error validando invitación:', error);
+          this.loading = false;
+          this.errorMessage = 'Invitación inválida, expirada o no disponible';
+        },
+      });
   }
 
   acceptInvite(): void {
     this.accepting = true;
     this.errorMessage = '';
 
-    this.workflowService.acceptInvite(this.token).subscribe({
-      next: (res: any) => {
-        this.successMessage = 'Invitación aceptada correctamente';
+    this.workflowService.acceptInvite(this.token)
+      .pipe(timeout(8000))
+      .subscribe({
+        next: () => {
+          this.successMessage = 'Invitación aceptada correctamente';
 
-        setTimeout(() => {
-          this.router.navigate(['/projects', res.projectId, 'designer']);
-        }, 1200);
-      },
-      error: () => {
-        this.accepting = false;
-        this.router.navigate(['/login'], {
-          queryParams: {
-            redirect: `/node-invite/${this.token}`,
-          },
-        });
-      },
-    });
+          setTimeout(() => {
+            this.router.navigate(['/dashboard']);
+          }, 1200);
+        },
+        error: (error) => {
+          console.error('Error aceptando invitación:', error);
+          this.accepting = false;
+
+          this.router.navigate(['/login'], {
+            queryParams: {
+              redirect: `/node-invite/${this.token}`,
+            },
+          });
+        },
+      });
   }
 }

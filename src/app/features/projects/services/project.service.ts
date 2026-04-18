@@ -28,6 +28,10 @@ export class ProjectService {
     return this.http.get<ProjectSummary[]>(`${this.apiUrl}/shared`);
   }
 
+  getProjectById(projectId: string): Observable<Project> {
+    return this.http.get<Project>(`${this.apiUrl}/${projectId}`);
+  }
+
   createProject(data: CreateProjectRequest): Observable<Project> {
     return this.http.post<Project>(this.apiUrl, data);
   }
@@ -35,6 +39,7 @@ export class ProjectService {
   inviteUser(projectId: string, data: InviteUserRequest): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.apiUrl}/${projectId}/invite`, data);
   }
+
   deleteProject(projectId: string): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`${this.apiUrl}/${projectId}`);
   }

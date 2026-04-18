@@ -6,8 +6,10 @@ import { RegisterComponent } from './features/auth/pages/register/register.compo
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { authGuard } from './core/guards/auth.guard';
 import { AuthService } from './features/auth/services/auth.service';
-import { WorkflowDesignerComponent } from './features/workflow/pages/workflow-designer/workflow-designer.component';
 import { NodeInviteComponent } from './features/workflow/pages/node-invite/node-invite.component';
+import { ProjectDetailComponent } from './features/projects/pages/project-detail/project-detail.component';
+import { ProjectWorkflowsComponent } from './features/workflow/pages/project-workflows/project-workflows.component';
+import { ProjectUsersComponent } from './features/projects/pages/project-users/project-users.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -35,8 +37,14 @@ export const routes: Routes = [
     ],
   },
   { path: 'register', component: RegisterComponent },
+
   { path: 'dashboard', component: DashboardComponent, canActivate: [authGuard] },
-  { path: 'projects/:id/designer', component: WorkflowDesignerComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/users', component: ProjectUsersComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/workflows', component: ProjectWorkflowsComponent, canActivate: [authGuard] },
 
   { path: 'node-invite/:token', component: NodeInviteComponent },
 

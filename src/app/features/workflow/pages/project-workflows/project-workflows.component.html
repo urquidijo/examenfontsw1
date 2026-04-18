@@ -1,0 +1,158 @@
+<div class="min-h-screen bg-slate-100">
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div class="flex items-center gap-3">
+        <button
+          (click)="goBack()"
+          class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Volver
+        </button>
+
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">Workflows del proyecto</h1>
+          <p class="mt-1 text-sm text-slate-500">
+            Crea y administra los flujos de trabajo del proyecto.
+          </p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-6 py-8">
+    <div
+      *ngIf="loading"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+    >
+      Cargando workflows...
+    </div>
+
+    <div
+      *ngIf="!loading && errorMessage"
+      class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+    >
+      {{ errorMessage }}
+    </div>
+
+    <ng-container *ngIf="!loading && project">
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="text-2xl font-bold text-slate-800">{{ project.name }}</h2>
+        <p class="mt-2 text-sm text-slate-500">
+          {{ project.description || 'Sin descripción' }}
+        </p>
+      </section>
+
+      <section class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-800">Nuevo workflow</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Crea un flujo de trabajo dentro de este proyecto.
+          </p>
+        </div>
+
+        <form [formGroup]="workflowForm" (ngSubmit)="createWorkflow()" class="grid gap-4 md:grid-cols-2">
+          <div class="md:col-span-1">
+            <label class="mb-2 block text-sm font-medium text-slate-700">Nombre del workflow</label>
+            <input
+              type="text"
+              formControlName="name"
+              placeholder="Ej. Flujo de aprobación"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+            <p
+              *ngIf="workflowForm.controls.name.touched && workflowForm.controls.name.invalid"
+              class="mt-2 text-sm text-red-500"
+            >
+              El nombre es obligatorio
+            </p>
+          </div>
+
+          <div class="md:col-span-1">
+            <label class="mb-2 block text-sm font-medium text-slate-700">Descripción</label>
+            <input
+              type="text"
+              formControlName="description"
+              placeholder="Descripción breve del workflow"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+          </div>
+
+          <div
+            *ngIf="successMessage"
+            class="md:col-span-2 rounded-2xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-700"
+          >
+            {{ successMessage }}
+          </div>
+
+          <div class="md:col-span-2">
+            <button
+              type="submit"
+              [disabled]="creating"
+              class="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {{ creating ? 'Creando...' : 'Crear workflow' }}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-800">Lista de workflows</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Administra los flujos existentes del proyecto.
+          </p>
+        </div>
+
+        <div
+          *ngIf="workflows.length === 0"
+          class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500"
+        >
+          Este proyecto todavía no tiene workflows.
+        </div>
+
+        <div class="grid gap-4" *ngIf="workflows.length > 0">
+          <article
+            *ngFor="let workflow of workflows"
+            class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+          >
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h4 class="text-lg font-bold text-slate-800">{{ workflow.name }}</h4>
+                <p class="mt-2 text-sm text-slate-600">
+                  {{ workflow.description || 'Sin descripción' }}
+                </p>
+
+                <div class="mt-4 flex flex-wrap gap-3 text-sm text-slate-500">
+                  <span class="rounded-full bg-white px-3 py-1 border border-slate-200">
+                    Nodos: {{ workflow.nodesCount }}
+                  </span>
+                  <span class="rounded-full bg-white px-3 py-1 border border-slate-200">
+                    Conexiones: {{ workflow.edgesCount }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <button
+                  (click)="openDesigner(workflow.id)"
+                  class="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Diseñar
+                </button>
+
+                <button
+                  (click)="deleteWorkflow(workflow.id)"
+                  [disabled]="deletingWorkflowId === workflow.id"
+                  class="rounded-2xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {{ deletingWorkflowId === workflow.id ? 'Eliminando...' : 'Eliminar' }}
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </ng-container>
+  </main>
+</div>

@@ -18,7 +18,31 @@ export interface WorkflowEdgeData {
 }
 
 export interface WorkflowDiagram {
+  workflowId: string;
   projectId: string;
+  name: string;
+  description?: string;
+  nodes: WorkflowNodeData[];
+  edges: WorkflowEdgeData[];
+}
+
+export interface WorkflowSummary {
+  id: string;
+  projectId: string;
+  name: string;
+  description?: string;
+  nodesCount: number;
+  edgesCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateWorkflowRequest {
+  name: string;
+  description?: string;
+}
+
+export interface SaveWorkflowRequest {
   nodes: WorkflowNodeData[];
   edges: WorkflowEdgeData[];
 }

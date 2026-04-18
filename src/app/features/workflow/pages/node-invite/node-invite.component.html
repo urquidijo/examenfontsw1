@@ -8,11 +8,11 @@
       Validando invitación...
     </div>
 
-    <div *ngIf="errorMessage" class="mt-6 text-center text-red-600">
+    <div *ngIf="errorMessage && !loading" class="mt-6 text-center text-red-600">
       {{ errorMessage }}
     </div>
 
-    <div *ngIf="inviteData && !loading" class="mt-6 space-y-4">
+    <div *ngIf="inviteData && !loading && !errorMessage" class="mt-6 space-y-4">
       <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
         <p><b>Proyecto:</b> {{ inviteData.projectName }}</p>
         <p><b>Nodo:</b> {{ inviteData.nodeLabel }}</p>
