@@ -38,6 +38,8 @@ export class ProjectTicketsComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
 
+  selectedFiles: File[] = [];
+
   ticketForm = this.fb.nonNullable.group({
     workflowId: ['', [Validators.required]],
     title: ['', [Validators.required, Validators.minLength(3)]],
@@ -103,7 +105,15 @@ export class ProjectTicketsComponent implements OnInit {
         clientEmail: '',
         clientReference: '',
       });
+      this.selectedFiles = [];
     }
+  }
+
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files) return;
+
+    this.selectedFiles = Array.from(input.files);
   }
 
   createTicket(): void {
@@ -116,31 +126,34 @@ export class ProjectTicketsComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
-    this.ticketService.createTicket(this.projectId, this.ticketForm.getRawValue()).subscribe({
-      next: (ticket) => {
-        this.tickets = [ticket, ...this.tickets];
-        this.saving = false;
-        this.successMessage = 'Ticket creado correctamente';
-        this.showForm = false;
+    this.ticketService
+      .createTicket(this.projectId, this.ticketForm.getRawValue(), this.selectedFiles)
+      .subscribe({
+        next: (ticket) => {
+          this.tickets = [ticket, ...this.tickets];
+          this.saving = false;
+          this.successMessage = 'Ticket creado correctamente';
+          this.showForm = false;
 
-        this.ticketForm.reset({
-          workflowId: '',
-          title: '',
-          description: '',
-          clientName: '',
-          clientPhone: '',
-          clientEmail: '',
-          clientReference: '',
-        });
+          this.ticketForm.reset({
+            workflowId: '',
+            title: '',
+            description: '',
+            clientName: '',
+            clientPhone: '',
+            clientEmail: '',
+            clientReference: '',
+          });
 
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        this.saving = false;
-        this.errorMessage = error?.error?.message || 'No se pudo crear el ticket';
-        this.cdr.detectChanges();
-      },
-    });
+          this.selectedFiles = [];
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          this.saving = false;
+          this.errorMessage = error?.error?.message || 'No se pudo crear el ticket';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   getStatusLabel(status: Ticket['status']): string {

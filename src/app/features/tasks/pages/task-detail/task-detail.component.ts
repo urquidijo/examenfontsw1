@@ -19,6 +19,8 @@ import {
   ConfirmDialogComponent,
   ConfirmDialogData,
 } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { TicketService } from '../../../ticket/services/ticket.service';
+import { StoredFileInfo } from '../../models/task.model';
 
 @Component({
   selector: 'app-task-detail',
@@ -34,6 +36,7 @@ export class TaskDetailComponent implements OnInit {
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
   private dialog = inject(MatDialog);
+  private ticketService = inject(TicketService);
 
   selectedFiles: File[] = [];
   selectedFilesByField: Record<string, File[]> = {};
@@ -77,6 +80,31 @@ export class TaskDetailComponent implements OnInit {
       control.markAsTouched();
       control.updateValueAndValidity();
     }
+  }
+
+  downloadTicketFile(file: StoredFileInfo): void {
+    const ticketId = this.task?.ticket?.id;
+    if (!ticketId) return;
+
+    this.ticketService.downloadTicketFile(this.projectId, ticketId, file.key).subscribe({
+      next: (response) => {
+        const blob = response.body;
+        if (!blob) return;
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.originalName || 'archivo';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (error) => {
+        this.errorMessage = error?.error?.message || 'No se pudo descargar el archivo del ticket';
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   getFilesForField(fieldId: string): File[] {

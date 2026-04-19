@@ -1,23 +1,42 @@
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
 
-export type TaskNodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
-
-export type DecisionMode = 'MANUAL';
+export interface StoredFileInfo {
+  key: string;
+  bucket: string;
+  originalName: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
 
 export interface DecisionOption {
-  value: string;
   label: string;
+  value: string;
+}
+
+export interface TaskTicketInfo {
+  id: string;
+  title: string;
+  description?: string;
+  clientName?: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  clientReference?: string;
+  status: TicketStatus;
+  metadata?: Record<string, any>;
+  uploadedFiles?: StoredFileInfo[];
 }
 
 export interface WorkflowTask {
   id: string;
   projectId: string;
   ticketId: string;
-
   workflowId: string;
   nodeId: string;
   nodeLabel: string;
-  nodeType?: TaskNodeType;
+  nodeType: string;
 
   departmentId?: string;
   departmentName?: string;
@@ -29,12 +48,15 @@ export interface WorkflowTask {
   tramiteTemplateId?: string;
   tramiteTemplateName?: string;
 
-  decisionMode?: DecisionMode;
+  decisionMode?: string;
   decisionQuestion?: string;
   decisionOptions?: DecisionOption[];
 
   status: TaskStatus;
   submittedTramiteData?: Record<string, any>;
+  uploadedFiles?: StoredFileInfo[];
+
+  ticket?: TaskTicketInfo;
 
   createdAt: string;
   startedAt?: string;
@@ -54,24 +76,19 @@ export interface CompletedTaskHistory {
   projectId: string;
   ticketId: string;
   workflowId: string;
-
   nodeId: string;
   nodeLabel: string;
-  nodeType?: TaskNodeType;
-
-  departmentId: string;
-  departmentName: string;
-
+  nodeType: string;
+  departmentId?: string;
+  departmentName?: string;
   assignedUserId?: string;
   assignedUserName?: string;
-
   requiresTramite: boolean;
   tramiteTemplateId?: string;
   tramiteTemplateName?: string;
-
   decisionResult?: string;
   submittedTramiteData?: Record<string, any>;
-
+  uploadedFiles?: StoredFileInfo[];
   startedAt?: string;
   completedAt?: string;
 }

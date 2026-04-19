@@ -1,5 +1,15 @@
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
+export interface StoredFileInfo {
+  key: string;
+  bucket: string;
+  originalName: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
 export interface Ticket {
   id: string;
   projectId: string;
@@ -25,6 +35,7 @@ export interface Ticket {
   updatedAt: string;
 
   metadata?: Record<string, any>;
+  uploadedFiles?: StoredFileInfo[];
 }
 
 export interface CreateTicketRequest {
