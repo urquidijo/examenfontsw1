@@ -3,7 +3,7 @@ import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TaskService } from '../../services/task.service';
-import { CompletedTaskHistory } from '../../models/task.model';
+import { CompletedTaskHistory, StoredFileInfo } from '../../models/task.model';
 
 @Component({
   selector: 'app-department-completed-tasks',
@@ -81,5 +81,40 @@ export class DepartmentCompletedTasksComponent implements OnInit {
         departmentName.includes(term)
       );
     });
+  }
+
+  formatFileSize(size?: number): string {
+    if (!size || size <= 0) return '0 KB';
+
+    const kb = size / 1024;
+    if (kb < 1024) return `${kb.toFixed(0)} KB`;
+
+    const mb = kb / 1024;
+    return `${mb.toFixed(2)} MB`;
+  }
+
+  downloadCompletedHistoryFile(item: CompletedTaskHistory, file: StoredFileInfo): void {
+    this.taskService
+      .downloadCompletedHistoryFile(this.projectId, item.id, file.key)
+      .subscribe({
+        next: (response) => {
+          const blob = response.body;
+          if (!blob) return;
+
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.originalName || 'archivo';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        },
+        error: (error) => {
+          this.errorMessage =
+            error?.error?.message || 'No se pudo descargar el archivo del histórico';
+          this.cdr.detectChanges();
+        },
+      });
   }
 }
