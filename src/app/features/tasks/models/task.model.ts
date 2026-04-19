@@ -1,5 +1,14 @@
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
 
+export type TaskNodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
+
+export type DecisionMode = 'MANUAL';
+
+export interface DecisionOption {
+  value: string;
+  label: string;
+}
+
 export interface WorkflowTask {
   id: string;
   projectId: string;
@@ -8,6 +17,7 @@ export interface WorkflowTask {
   workflowId: string;
   nodeId: string;
   nodeLabel: string;
+  nodeType?: TaskNodeType;
 
   departmentId?: string;
   departmentName?: string;
@@ -18,6 +28,10 @@ export interface WorkflowTask {
   requiresTramite: boolean;
   tramiteTemplateId?: string;
   tramiteTemplateName?: string;
+
+  decisionMode?: DecisionMode;
+  decisionQuestion?: string;
+  decisionOptions?: DecisionOption[];
 
   status: TaskStatus;
   submittedTramiteData?: Record<string, any>;
@@ -43,6 +57,7 @@ export interface CompletedTaskHistory {
 
   nodeId: string;
   nodeLabel: string;
+  nodeType?: TaskNodeType;
 
   departmentId: string;
   departmentName: string;
@@ -54,6 +69,7 @@ export interface CompletedTaskHistory {
   tramiteTemplateId?: string;
   tramiteTemplateName?: string;
 
+  decisionResult?: string;
   submittedTramiteData?: Record<string, any>;
 
   startedAt?: string;
@@ -62,4 +78,5 @@ export interface CompletedTaskHistory {
 
 export interface CompleteTaskRequest {
   tramiteData?: Record<string, any>;
+  decisionResult?: string;
 }

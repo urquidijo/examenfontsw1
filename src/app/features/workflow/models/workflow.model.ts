@@ -1,5 +1,32 @@
 export type WorkflowStatus = 'DRAFT' | 'PUBLISHED';
 
+export type WorkflowNodeType =
+  | 'start'
+  | 'task'
+  | 'decision'
+  | 'fork'
+  | 'join'
+  | 'end';
+
+type NodeType = WorkflowNodeType;
+
+type DecisionOption = {
+  value: string;
+  label: string;
+};
+
+type WorkflowNodeConfig = {
+  label: string;
+  nodeType: NodeType;
+  departmentId?: string;
+  departmentName?: string;
+  instructions?: string;
+
+  decisionMode?: 'MANUAL';
+  decisionQuestion?: string;
+  decisionOptions?: DecisionOption[];
+};
+
 export interface WorkflowNodeData {
   id: string;
   shape: string;
@@ -8,14 +35,15 @@ export interface WorkflowNodeData {
   width?: number;
   height?: number;
   label?: string;
-  data?: Record<string, any>;
+  data?: WorkflowNodeConfig;
 }
 
 export interface WorkflowEdgeData {
   id?: string;
   shape?: string;
-  source: string | { cell: string };
-  target: string | { cell: string };
+  source: string | { cell: string; port?: string };
+  target: string | { cell: string; port?: string };
+  conditionValue?: string;
   labels?: Array<{ attrs?: any }>;
 }
 
@@ -36,7 +64,7 @@ export interface WorkflowSummary {
   description?: string;
   nodesCount: number;
   edgesCount: number;
-  status: 'DRAFT' | 'PUBLISHED';
+  status: WorkflowStatus;
   createdAt?: string;
   updatedAt?: string;
 }

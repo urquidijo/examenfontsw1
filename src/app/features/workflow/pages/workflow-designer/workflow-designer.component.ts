@@ -20,12 +20,21 @@ import { WorkflowStatus } from '../../models/workflow.model';
 
 type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
+type DecisionOption = {
+  value: string;
+  label: string;
+};
+
 type WorkflowNodeConfig = {
   label: string;
   nodeType: NodeType;
   departmentId?: string;
   departmentName?: string;
   instructions?: string;
+
+  decisionMode?: 'MANUAL';
+  decisionQuestion?: string;
+  decisionOptions?: DecisionOption[];
 };
 
 @Component({
@@ -47,6 +56,13 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   graph: any = null;
 
+  selectedDecisionEdges: Array<{
+    edgeId: string;
+    targetId: string;
+    targetLabel: string;
+    conditionValue: string;
+  }> = [];
+
   projectId = '';
   workflowId = '';
 
@@ -66,6 +82,78 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     return this.workflowStatus === 'PUBLISHED';
   }
 
+  get isDecisionNodeSelected(): boolean {
+    return this.nodeForm.nodeType === 'decision';
+  }
+
+  ensureDecisionConfig(): void {
+    if (this.nodeForm.nodeType !== 'decision') {
+      return;
+    }
+
+    this.nodeForm.decisionMode = 'MANUAL';
+    this.nodeForm.decisionQuestion =
+      this.nodeForm.decisionQuestion?.trim() || 'Seleccione una opción';
+
+    if (!this.nodeForm.decisionOptions || this.nodeForm.decisionOptions.length < 2) {
+      this.nodeForm.decisionOptions = [
+        { value: 'SI', label: 'Sí' },
+        { value: 'NO', label: 'No' },
+      ];
+    }
+  }
+
+  onNodeTypeChange(): void {
+    if (this.nodeForm.nodeType === 'decision') {
+      this.ensureDecisionConfig();
+      this.loadDecisionEdges();
+      return;
+    }
+
+    this.nodeForm.decisionMode = undefined;
+    this.nodeForm.decisionQuestion = '';
+    this.nodeForm.decisionOptions = [];
+    this.selectedDecisionEdges = [];
+  }
+
+  loadDecisionEdges(): void {
+    this.selectedDecisionEdges = [];
+
+    if (!this.selectedNode || this.nodeForm.nodeType !== 'decision' || !this.graph) {
+      return;
+    }
+
+    const currentNodeId = this.selectedNode.id;
+    const rawEdges = this.graph.getEdges() || [];
+
+    this.selectedDecisionEdges = rawEdges
+      .filter((edge: any) => {
+        const source = edge.getSource?.();
+        const sourceCell = typeof source === 'string' ? source : source?.cell;
+        return sourceCell === currentNodeId;
+      })
+      .map((edge: any) => {
+        const target = edge.getTarget?.();
+        const targetCell = typeof target === 'string' ? target : target?.cell;
+        const targetNode = this.graph.getCellById(targetCell);
+
+        const currentLabel =
+          edge.getData?.()?.conditionValue ||
+          edge.getPropByPath?.('conditionValue') ||
+          edge.prop?.('conditionValue') ||
+          '';
+        return {
+          edgeId: edge.id,
+          targetId: targetCell,
+          targetLabel:
+            targetNode?.getData?.()?.label ||
+            targetNode?.attr?.('label/text') ||
+            targetCell ||
+            'Nodo',
+          conditionValue: currentLabel,
+        };
+      });
+  }
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('projectId') || '';
     this.workflowId = this.route.snapshot.paramMap.get('workflowId') || '';
@@ -160,6 +248,14 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     this.graph.on('node:click', ({ node }: any) => {
       this.selectedNode = node;
       this.nodeForm = this.getNodeConfig(node);
+
+      if (this.nodeForm.nodeType === 'decision') {
+        this.ensureDecisionConfig();
+        this.loadDecisionEdges();
+      } else {
+        this.selectedDecisionEdges = [];
+      }
+
       this.message = '';
       this.errorMessage = '';
       this.cdr.detectChanges();
@@ -195,7 +291,9 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     this.errorMessage = '';
 
     forkJoin({
-      workflow: this.workflowService.getWorkflow(this.projectId, this.workflowId).pipe(timeout(8000)),
+      workflow: this.workflowService
+        .getWorkflow(this.projectId, this.workflowId)
+        .pipe(timeout(8000)),
       departments: this.departmentService.getDepartments(this.projectId).pipe(timeout(8000)),
     })
       .pipe(
@@ -203,7 +301,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           this.loading = false;
           this.resizeGraph();
           this.cdr.detectChanges();
-        })
+        }),
       )
       .subscribe({
         next: ({ workflow, departments }) => {
@@ -228,8 +326,47 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   private clearSelection(): void {
     this.selectedNode = null;
+    this.selectedDecisionEdges = [];
     this.nodeForm = this.createEmptyNodeConfig('task');
     this.cdr.detectChanges();
+  }
+
+  saveDecisionEdgeConditions(): void {
+    if (!this.graph || !this.selectedDecisionEdges.length) {
+      return;
+    }
+
+    for (const item of this.selectedDecisionEdges) {
+      const edge = this.graph.getCellById(item.edgeId);
+
+      if (!edge) continue;
+
+      const existingData = edge.getData?.() || {};
+
+      edge.setData?.({
+        ...existingData,
+        conditionValue: item.conditionValue,
+      });
+
+      edge.prop?.('conditionValue', item.conditionValue);
+
+      const optionLabel =
+        this.nodeForm.decisionOptions?.find((opt) => opt.value === item.conditionValue)?.label ||
+        item.conditionValue ||
+        '';
+
+      if (optionLabel) {
+        edge.setLabels?.([
+          {
+            attrs: {
+              label: {
+                text: optionLabel,
+              },
+            },
+          },
+        ]);
+      }
+    }
   }
 
   private createEmptyNodeConfig(nodeType: NodeType): WorkflowNodeConfig {
@@ -239,6 +376,15 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       departmentId: '',
       departmentName: '',
       instructions: '',
+      decisionMode: nodeType === 'decision' ? 'MANUAL' : undefined,
+      decisionQuestion: nodeType === 'decision' ? 'Seleccione una opción' : '',
+      decisionOptions:
+        nodeType === 'decision'
+          ? [
+              { value: 'SI', label: 'Sí' },
+              { value: 'NO', label: 'No' },
+            ]
+          : [],
     };
   }
 
@@ -339,7 +485,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -364,7 +510,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -388,7 +534,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -413,7 +559,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -438,7 +584,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true
+      true,
     );
 
     Graph.registerNode(
@@ -463,7 +609,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           },
         },
       },
-      true
+      true,
     );
   }
 
@@ -471,7 +617,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     setTimeout(() => {
       this.graph?.resize?.(
         this.containerRef?.nativeElement?.clientWidth || 1000,
-        this.containerRef?.nativeElement?.clientHeight || 680
+        this.containerRef?.nativeElement?.clientHeight || 680,
       );
       this.graph?.centerContent?.();
     }, 0);
@@ -481,10 +627,18 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     return node?.attr?.('label/text') || node?.getAttrs?.()?.label?.text || '';
   }
 
-  private buildNodePayload(nodeType: NodeType, label: string): WorkflowNodeConfig {
+  private buildNodePayload(
+    nodeType: string,
+    label: string,
+    extraData: Record<string, any> = {},
+  ): Record<string, any> {
     return {
-      ...this.createEmptyNodeConfig(nodeType),
       label,
+      nodeType,
+      departmentId: '',
+      departmentName: '',
+      instructions: '',
+      ...extraData,
     };
   }
 
@@ -531,9 +685,30 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   applyLinearTemplate(): void {
     const nodes = [
-      { id: 'linear-start', shape: 'workflow-start', x: 80, y: 120, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
-      { id: 'linear-task-1', shape: 'workflow-task', x: 320, y: 110, label: 'Actividad', data: this.buildNodePayload('task', 'Actividad') },
-      { id: 'linear-end', shape: 'workflow-end', x: 620, y: 120, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
+      {
+        id: 'linear-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 120,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'linear-task-1',
+        shape: 'workflow-task',
+        x: 320,
+        y: 110,
+        label: 'Actividad',
+        data: this.buildNodePayload('task', 'Actividad'),
+      },
+      {
+        id: 'linear-end',
+        shape: 'workflow-end',
+        x: 620,
+        y: 120,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
     ];
 
     const edges = [
@@ -543,20 +718,87 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     this.replaceWithTemplate(nodes, edges, 'Plantilla lineal aplicada');
   }
-
   applyConditionalTemplate(): void {
     const nodes = [
-      { id: 'cond-start', shape: 'workflow-start', x: 80, y: 180, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
-      { id: 'cond-decision', shape: 'workflow-decision', x: 300, y: 140, label: 'Decisión', data: this.buildNodePayload('decision', 'Decisión') },
-      { id: 'cond-task-yes', shape: 'workflow-task', x: 560, y: 40, label: 'Ruta Sí', data: this.buildNodePayload('task', 'Ruta Sí') },
-      { id: 'cond-task-no', shape: 'workflow-task', x: 560, y: 250, label: 'Ruta No', data: this.buildNodePayload('task', 'Ruta No') },
-      { id: 'cond-end', shape: 'workflow-end', x: 860, y: 180, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
+      {
+        id: 'cond-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 180,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'cond-decision',
+        shape: 'workflow-decision',
+        x: 300,
+        y: 140,
+        label: 'Decisión',
+        data: this.buildNodePayload('decision', 'Decisión', {
+          decisionMode: 'MANUAL',
+          decisionQuestion: 'Seleccione una opción',
+          decisionOptions: [
+            { value: 'SI', label: 'Sí' },
+            { value: 'NO', label: 'No' },
+          ],
+        }),
+      },
+      {
+        id: 'cond-task-yes',
+        shape: 'workflow-task',
+        x: 560,
+        y: 40,
+        label: 'Ruta Sí',
+        data: this.buildNodePayload('task', 'Ruta Sí'),
+      },
+      {
+        id: 'cond-task-no',
+        shape: 'workflow-task',
+        x: 560,
+        y: 250,
+        label: 'Ruta No',
+        data: this.buildNodePayload('task', 'Ruta No'),
+      },
+      {
+        id: 'cond-end',
+        shape: 'workflow-end',
+        x: 860,
+        y: 180,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
     ];
 
     const edges = [
       this.buildEdge('cond-edge-1', 'cond-start', 'cond-decision'),
-      this.buildEdge('cond-edge-2', 'cond-decision', 'cond-task-yes'),
-      this.buildEdge('cond-edge-3', 'cond-decision', 'cond-task-no'),
+      {
+        ...this.buildEdge('cond-edge-2', 'cond-decision', 'cond-task-yes'),
+        conditionValue: 'SI',
+        data: { conditionValue: 'SI' },
+        labels: [
+          {
+            attrs: {
+              label: {
+                text: 'Sí',
+              },
+            },
+          },
+        ],
+      },
+      {
+        ...this.buildEdge('cond-edge-3', 'cond-decision', 'cond-task-no'),
+        conditionValue: 'NO',
+        data: { conditionValue: 'NO' },
+        labels: [
+          {
+            attrs: {
+              label: {
+                text: 'No',
+              },
+            },
+          },
+        ],
+      },
       this.buildEdge('cond-edge-4', 'cond-task-yes', 'cond-end'),
       this.buildEdge('cond-edge-5', 'cond-task-no', 'cond-end'),
     ];
@@ -566,12 +808,54 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   applyParallelTemplate(): void {
     const nodes = [
-      { id: 'parallel-start', shape: 'workflow-start', x: 80, y: 180, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
-      { id: 'parallel-fork', shape: 'workflow-fork', x: 300, y: 190, label: 'Fork', data: this.buildNodePayload('fork', 'Fork') },
-      { id: 'parallel-task-1', shape: 'workflow-task', x: 560, y: 60, label: 'Actividad A', data: this.buildNodePayload('task', 'Actividad A') },
-      { id: 'parallel-task-2', shape: 'workflow-task', x: 560, y: 300, label: 'Actividad B', data: this.buildNodePayload('task', 'Actividad B') },
-      { id: 'parallel-join', shape: 'workflow-join', x: 860, y: 190, label: 'Join', data: this.buildNodePayload('join', 'Join') },
-      { id: 'parallel-end', shape: 'workflow-end', x: 1120, y: 180, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
+      {
+        id: 'parallel-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 180,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'parallel-fork',
+        shape: 'workflow-fork',
+        x: 300,
+        y: 190,
+        label: 'Fork',
+        data: this.buildNodePayload('fork', 'Fork'),
+      },
+      {
+        id: 'parallel-task-1',
+        shape: 'workflow-task',
+        x: 560,
+        y: 60,
+        label: 'Actividad A',
+        data: this.buildNodePayload('task', 'Actividad A'),
+      },
+      {
+        id: 'parallel-task-2',
+        shape: 'workflow-task',
+        x: 560,
+        y: 300,
+        label: 'Actividad B',
+        data: this.buildNodePayload('task', 'Actividad B'),
+      },
+      {
+        id: 'parallel-join',
+        shape: 'workflow-join',
+        x: 860,
+        y: 190,
+        label: 'Join',
+        data: this.buildNodePayload('join', 'Join'),
+      },
+      {
+        id: 'parallel-end',
+        shape: 'workflow-end',
+        x: 1120,
+        y: 180,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
     ];
 
     const edges = [
@@ -585,20 +869,80 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     this.replaceWithTemplate(nodes, edges, 'Plantilla paralela aplicada');
   }
-
   applyIterativeTemplate(): void {
     const nodes = [
-      { id: 'iter-start', shape: 'workflow-start', x: 80, y: 180, label: 'Inicio', data: this.buildNodePayload('start', 'Inicio') },
-      { id: 'iter-task', shape: 'workflow-task', x: 320, y: 170, label: 'Actividad', data: this.buildNodePayload('task', 'Actividad') },
-      { id: 'iter-decision', shape: 'workflow-decision', x: 600, y: 140, label: '¿Repetir?', data: this.buildNodePayload('decision', '¿Repetir?') },
-      { id: 'iter-end', shape: 'workflow-end', x: 900, y: 180, label: 'Fin', data: this.buildNodePayload('end', 'Fin') },
+      {
+        id: 'iter-start',
+        shape: 'workflow-start',
+        x: 80,
+        y: 180,
+        label: 'Inicio',
+        data: this.buildNodePayload('start', 'Inicio'),
+      },
+      {
+        id: 'iter-task',
+        shape: 'workflow-task',
+        x: 320,
+        y: 170,
+        label: 'Actividad',
+        data: this.buildNodePayload('task', 'Actividad'),
+      },
+      {
+        id: 'iter-decision',
+        shape: 'workflow-decision',
+        x: 600,
+        y: 140,
+        label: '¿Repetir?',
+        data: this.buildNodePayload('decision', '¿Repetir?', {
+          decisionMode: 'MANUAL',
+          decisionQuestion: '¿Desea repetir el paso?',
+          decisionOptions: [
+            { value: 'SI', label: 'Sí' },
+            { value: 'NO', label: 'No' },
+          ],
+        }),
+      },
+      {
+        id: 'iter-end',
+        shape: 'workflow-end',
+        x: 900,
+        y: 180,
+        label: 'Fin',
+        data: this.buildNodePayload('end', 'Fin'),
+      },
     ];
 
     const edges = [
       this.buildEdge('iter-edge-1', 'iter-start', 'iter-task'),
       this.buildEdge('iter-edge-2', 'iter-task', 'iter-decision'),
-      this.buildEdge('iter-edge-3', 'iter-decision', 'iter-end'),
-      this.buildEdge('iter-edge-4', 'iter-decision', 'iter-task'),
+      {
+        ...this.buildEdge('iter-edge-3', 'iter-decision', 'iter-end'),
+        conditionValue: 'NO',
+        data: { conditionValue: 'NO' },
+        labels: [
+          {
+            attrs: {
+              label: {
+                text: 'No',
+              },
+            },
+          },
+        ],
+      },
+      {
+        ...this.buildEdge('iter-edge-4', 'iter-decision', 'iter-task'),
+        conditionValue: 'SI',
+        data: { conditionValue: 'SI' },
+        labels: [
+          {
+            attrs: {
+              label: {
+                text: 'Sí',
+              },
+            },
+          },
+        ],
+      },
     ];
 
     this.replaceWithTemplate(nodes, edges, 'Plantilla iterativa aplicada');
@@ -628,12 +972,20 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   addDecisionNode(): void {
     if (this.loading || !this.graph || this.isPublished) return;
+
     this.graph.addNode({
       shape: 'workflow-decision',
       x: 520,
       y: 60,
       label: 'Decisión',
-      data: this.buildNodePayload('decision', 'Decisión'),
+      data: this.buildNodePayload('decision', 'Decisión', {
+        decisionMode: 'MANUAL',
+        decisionQuestion: 'Seleccione una opción',
+        decisionOptions: [
+          { value: 'SI', label: 'Sí' },
+          { value: 'NO', label: 'No' },
+        ],
+      }),
     });
   }
 
@@ -686,24 +1038,50 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
 
+    if (this.nodeForm.nodeType === 'decision') {
+      this.ensureDecisionConfig();
+    }
+
     const cleanLabel = this.nodeForm.label.trim() || 'Sin nombre';
     const nodeType = this.nodeForm.nodeType;
     const nextShape = this.getShapeFromNodeType(nodeType);
 
-    this.selectedNode.attr('label/text', cleanLabel);
-    this.selectedNode.setData({
+    const payload: WorkflowNodeConfig = {
       ...this.nodeForm,
       label: cleanLabel,
-    });
+    };
+
+    if (nodeType === 'decision') {
+      payload.decisionMode = 'MANUAL';
+      payload.decisionQuestion = payload.decisionQuestion?.trim() || 'Seleccione una opción';
+      payload.decisionOptions =
+        payload.decisionOptions && payload.decisionOptions.length >= 2
+          ? payload.decisionOptions
+          : [
+              { value: 'SI', label: 'Sí' },
+              { value: 'NO', label: 'No' },
+            ];
+    } else {
+      payload.decisionMode = undefined;
+      payload.decisionQuestion = '';
+      payload.decisionOptions = [];
+    }
+
+    this.selectedNode.attr('label/text', cleanLabel);
+    this.selectedNode.setData(payload);
 
     if (this.selectedNode.shape !== nextShape) {
       this.selectedNode.shape = nextShape;
     }
 
-    this.nodeForm = {
-      ...this.nodeForm,
-      label: cleanLabel,
-    };
+    if (nodeType === 'decision') {
+      this.saveDecisionEdgeConditions();
+      this.loadDecisionEdges();
+    } else {
+      this.selectedDecisionEdges = [];
+    }
+
+    this.nodeForm = { ...payload };
 
     this.message = 'Nodo actualizado correctamente';
     this.errorMessage = '';
@@ -752,7 +1130,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
         finalize(() => {
           this.saving = false;
           this.cdr.detectChanges();
-        })
+        }),
       )
       .subscribe({
         next: (res) => {

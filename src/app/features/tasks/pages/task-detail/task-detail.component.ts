@@ -10,18 +10,22 @@ import {
 } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { TaskService } from '../../services/task.service';
-import { WorkflowTask } from '../../models/task.model';
+import {
+  DecisionOption,
+  WorkflowTask,
+} from '../../models/task.model';
 import { TramiteService } from '../../../tramites/services/tramite.service';
 import { TramiteField, TramiteTemplate } from '../../../tramites/models/tramite.model';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
 } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule],
+  imports: [CommonModule, RouterModule, ReactiveFormsModule,FormsModule],
   templateUrl: './task-detail.component.html',
 })
 export class TaskDetailComponent implements OnInit {
@@ -45,6 +49,8 @@ export class TaskDetailComponent implements OnInit {
   loadingTramite = false;
   errorMessage = '';
 
+  selectedDecisionResult = '';
+
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
     this.taskId = this.route.snapshot.paramMap.get('taskId') || '';
@@ -55,6 +61,7 @@ export class TaskDetailComponent implements OnInit {
     this.loading = true;
     this.loadingTramite = false;
     this.errorMessage = '';
+    this.selectedDecisionResult = '';
 
     this.taskService.getTaskDetail(this.projectId, this.taskId).subscribe({
       next: (task) => {
@@ -128,6 +135,14 @@ export class TaskDetailComponent implements OnInit {
     ]);
   }
 
+  get isDecisionTask(): boolean {
+    return this.task?.nodeType === 'decision';
+  }
+
+  get decisionOptions(): DecisionOption[] {
+    return this.task?.decisionOptions ?? [];
+  }
+
   requestCompleteTask(): void {
     if (!this.task) return;
 
@@ -144,6 +159,12 @@ export class TaskDetailComponent implements OnInit {
         this.cdr.detectChanges();
         return;
       }
+    }
+
+    if (this.isDecisionTask && !this.selectedDecisionResult) {
+      this.errorMessage = 'Debes seleccionar una opción para la decisión';
+      this.cdr.detectChanges();
+      return;
     }
 
     const dialogData: ConfirmDialogData = {
@@ -178,7 +199,10 @@ export class TaskDetailComponent implements OnInit {
     this.completing = true;
     this.errorMessage = '';
 
-    this.taskService.completeTask(this.projectId, this.task.id, { tramiteData }).subscribe({
+    this.taskService.completeTask(this.projectId, this.task.id, {
+      tramiteData,
+      decisionResult: this.isDecisionTask ? this.selectedDecisionResult : undefined,
+    }).subscribe({
       next: () => {
         this.completing = false;
         this.goBack();
@@ -194,5 +218,9 @@ export class TaskDetailComponent implements OnInit {
   isFieldInvalid(fieldId: string): boolean {
     const control = this.tramiteForm.get(fieldId);
     return !!control && control.invalid && (control.touched || control.dirty);
+  }
+
+  isDecisionInvalid(): boolean {
+    return this.isDecisionTask && !this.selectedDecisionResult;
   }
 }
