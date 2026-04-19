@@ -1085,6 +1085,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
     this.message = 'Nodo actualizado correctamente';
     this.errorMessage = '';
+    this.saveWorkflow();
     this.cdr.detectChanges();
   }
 
