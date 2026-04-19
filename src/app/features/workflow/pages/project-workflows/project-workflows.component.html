@@ -27,12 +27,6 @@
       Cargando workflows...
     </div>
 
-    <div
-      *ngIf="!loading && errorMessage"
-      class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
-    >
-      {{ errorMessage }}
-    </div>
 
     <ng-container *ngIf="!loading && project">
       <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

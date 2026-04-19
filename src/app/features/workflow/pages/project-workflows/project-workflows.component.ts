@@ -2,10 +2,19 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { ProjectService } from '../../../projects/services/project.service';
 import { WorkflowService } from '../../services/workflow.service';
 import { Project } from '../../../projects/models/project.model';
 import { WorkflowSummary } from '../../models/workflow.model';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
+import {
+  AlertDialogComponent,
+  AlertDialogData,
+} from '../../../../shared/components/alert-dialog/alert-dialog.component';
 
 @Component({
   selector: 'app-project-workflows',
@@ -20,6 +29,7 @@ export class ProjectWorkflowsComponent implements OnInit {
   private workflowService = inject(WorkflowService);
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
+  private dialog = inject(MatDialog);
 
   projectId = '';
   project: Project | null = null;
@@ -81,6 +91,33 @@ export class ProjectWorkflowsComponent implements OnInit {
     this.router.navigate(['/projects', this.projectId]);
   }
 
+  private openAlert(data: AlertDialogData): void {
+    this.dialog.open(AlertDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      disableClose: true,
+      data,
+    });
+  }
+
+  private showWorkflowError(message: string): void {
+    this.openAlert({
+      title: 'No se pudo completar la operación',
+      message,
+      type: 'error',
+      buttonText: 'Entendido',
+    });
+  }
+
+  private showWorkflowSuccess(message: string): void {
+    this.openAlert({
+      title: 'Operación exitosa',
+      message,
+      type: 'success',
+      buttonText: 'Aceptar',
+    });
+  }
+
   createWorkflow(): void {
     if (this.workflowForm.invalid) {
       this.workflowForm.markAllAsTouched();
@@ -115,29 +152,50 @@ export class ProjectWorkflowsComponent implements OnInit {
   }
 
   deleteWorkflow(workflowId: string): void {
-    const confirmed = window.confirm('¿Seguro que deseas eliminar este workflow?');
+    const dialogData: ConfirmDialogData = {
+      title: 'Eliminar workflow',
+      message: '¿Seguro que deseas eliminar este workflow? Esta acción no se puede deshacer.',
+      confirmText: 'Sí, eliminar',
+      cancelText: 'Cancelar',
+    };
 
-    if (!confirmed) {
-      return;
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '420px',
+      disableClose: true,
+      data: dialogData,
+    });
 
-    this.deletingWorkflowId = workflowId;
-    this.errorMessage = '';
-    this.successMessage = '';
-    this.cdr.detectChanges();
+    dialogRef.afterClosed().subscribe((confirmed) => {
+      if (!confirmed) {
+        return;
+      }
 
-    this.workflowService.deleteWorkflow(this.projectId, workflowId).subscribe({
-      next: (response) => {
-        this.workflows = this.workflows.filter((workflow) => workflow.id !== workflowId);
-        this.deletingWorkflowId = null;
-        this.successMessage = response?.message || 'Workflow eliminado correctamente';
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        this.deletingWorkflowId = null;
-        this.errorMessage = error?.error?.message || 'No se pudo eliminar el workflow';
-        this.cdr.detectChanges();
-      },
+      this.deletingWorkflowId = workflowId;
+      this.errorMessage = '';
+      this.successMessage = '';
+      this.cdr.detectChanges();
+
+      this.workflowService.deleteWorkflow(this.projectId, workflowId).subscribe({
+        next: (response) => {
+          this.workflows = this.workflows.filter((workflow) => workflow.id !== workflowId);
+          this.deletingWorkflowId = null;
+
+          const message = response?.message || 'Workflow eliminado correctamente';
+          this.successMessage = message;
+          this.cdr.detectChanges();
+
+          this.showWorkflowSuccess(message);
+        },
+        error: (error) => {
+          this.deletingWorkflowId = null;
+
+          const message = error?.error?.message || 'No se pudo eliminar el workflow';
+          this.errorMessage = message;
+          this.cdr.detectChanges();
+
+          this.showWorkflowError(message);
+        },
+      });
     });
   }
 
@@ -149,16 +207,22 @@ export class ProjectWorkflowsComponent implements OnInit {
       next: (updated) => {
         this.workflows = this.workflows.map((item) => (item.id === updated.id ? updated : item));
 
-        this.successMessage =
+        const message =
           status === 'PUBLISHED'
             ? 'Workflow puesto en producción correctamente'
             : 'Workflow devuelto a desarrollo correctamente';
 
+        this.successMessage = message;
         this.cdr.detectChanges();
+
+        this.showWorkflowSuccess(message);
       },
       error: (error) => {
-        this.errorMessage = error?.error?.message || 'No se pudo cambiar el estado del workflow';
+        const message = error?.error?.message || 'No se pudo cambiar el estado del workflow';
+        this.errorMessage = message;
         this.cdr.detectChanges();
+
+        this.showWorkflowError(message);
       },
     });
   }

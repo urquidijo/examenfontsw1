@@ -1,0 +1,41 @@
+<div class="p-6">
+  <div class="flex items-start gap-4">
+    <div
+      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-2xl font-bold"
+      [ngClass]="iconClasses"
+    >
+      {{ icon }}
+    </div>
+
+    <div class="min-w-0 flex-1">
+      <h2 class="text-xl font-bold text-slate-800">
+        {{ data.title }}
+      </h2>
+
+      <div class="mt-3 text-sm text-slate-600">
+        <ng-container *ngIf="!showAsList; else messageList">
+          <p class="whitespace-pre-line">{{ data.message }}</p>
+        </ng-container>
+
+        <ng-template #messageList>
+          <ul class="list-disc space-y-2 pl-5">
+            <li *ngFor="let line of messageLines">
+              {{ line }}
+            </li>
+          </ul>
+        </ng-template>
+      </div>
+
+      <div class="mt-6 flex justify-end">
+        <button
+          type="button"
+          (click)="close()"
+          class="rounded-2xl px-5 py-2 font-semibold text-white transition"
+          [ngClass]="buttonClasses"
+        >
+          {{ data.buttonText || 'Entendido' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
