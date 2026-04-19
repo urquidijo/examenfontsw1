@@ -37,11 +37,23 @@ export class TaskService {
   completeTask(
     projectId: string,
     taskId: string,
-    data: CompleteTaskRequest
+    data: CompleteTaskRequest,
+    files: File[] = []
   ): Observable<WorkflowTask> {
+    const formData = new FormData();
+
+    formData.append(
+      'payload',
+      new Blob([JSON.stringify(data)], { type: 'application/json' })
+    );
+
+    for (const file of files) {
+      formData.append('files', file);
+    }
+
     return this.http.post<WorkflowTask>(
       `${this.apiUrl}/projects/${projectId}/tasks/${taskId}/complete`,
-      data
+      formData
     );
   }
 

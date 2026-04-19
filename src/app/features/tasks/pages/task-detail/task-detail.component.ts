@@ -9,23 +9,21 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
+import { FormsModule } from '@angular/forms';
+
 import { TaskService } from '../../services/task.service';
-import {
-  DecisionOption,
-  WorkflowTask,
-} from '../../models/task.model';
+import { DecisionOption, WorkflowTask } from '../../models/task.model';
 import { TramiteService } from '../../../tramites/services/tramite.service';
 import { TramiteField, TramiteTemplate } from '../../../tramites/models/tramite.model';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
 } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
-import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, ReactiveFormsModule,FormsModule],
+  imports: [CommonModule, RouterModule, ReactiveFormsModule, FormsModule],
   templateUrl: './task-detail.component.html',
 })
 export class TaskDetailComponent implements OnInit {
@@ -36,6 +34,9 @@ export class TaskDetailComponent implements OnInit {
   private fb = inject(FormBuilder);
   private cdr = inject(ChangeDetectorRef);
   private dialog = inject(MatDialog);
+
+  selectedFiles: File[] = [];
+  selectedFilesByField: Record<string, File[]> = {};
 
   projectId = '';
   taskId = '';
@@ -57,11 +58,37 @@ export class TaskDetailComponent implements OnInit {
     this.loadData();
   }
 
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files) return;
+
+    this.selectedFiles = Array.from(input.files);
+  }
+
+  onFieldFilesSelected(fieldId: string, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files ? Array.from(input.files) : [];
+
+    this.selectedFilesByField[fieldId] = files;
+
+    const control = this.tramiteForm.get(fieldId);
+    if (control) {
+      control.setValue(files.length > 0 ? files.map((f) => f.name) : null);
+      control.markAsTouched();
+      control.updateValueAndValidity();
+    }
+  }
+
+  getFilesForField(fieldId: string): File[] {
+    return this.selectedFilesByField[fieldId] || [];
+  }
+
   loadData(): void {
     this.loading = true;
     this.loadingTramite = false;
     this.errorMessage = '';
     this.selectedDecisionResult = '';
+    this.selectedFiles = [];
 
     this.taskService.getTaskDetail(this.projectId, this.taskId).subscribe({
       next: (task) => {
@@ -112,6 +139,10 @@ export class TaskDetailComponent implements OnInit {
 
       if (field.type === 'CHECKBOX') {
         initialValue = false;
+      }
+
+      if (field.type === 'FILE') {
+        initialValue = null;
       }
 
       controls[field.id] = this.fb.control(initialValue, validators) as FormControl;
@@ -196,23 +227,32 @@ export class TaskDetailComponent implements OnInit {
       tramiteData = this.tramiteForm.getRawValue();
     }
 
+    const files = Object.values(this.selectedFilesByField).flat();
+
     this.completing = true;
     this.errorMessage = '';
 
-    this.taskService.completeTask(this.projectId, this.task.id, {
-      tramiteData,
-      decisionResult: this.isDecisionTask ? this.selectedDecisionResult : undefined,
-    }).subscribe({
-      next: () => {
-        this.completing = false;
-        this.goBack();
-      },
-      error: (error) => {
-        this.completing = false;
-        this.errorMessage = error?.error?.message || 'No se pudo completar la tarea';
-        this.cdr.detectChanges();
-      },
-    });
+    this.taskService
+      .completeTask(
+        this.projectId,
+        this.task.id,
+        {
+          tramiteData,
+          decisionResult: this.isDecisionTask ? this.selectedDecisionResult : undefined,
+        },
+        files,
+      )
+      .subscribe({
+        next: () => {
+          this.completing = false;
+          this.goBack();
+        },
+        error: (error) => {
+          this.completing = false;
+          this.errorMessage = error?.error?.message || 'No se pudo completar la tarea';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   isFieldInvalid(fieldId: string): boolean {
