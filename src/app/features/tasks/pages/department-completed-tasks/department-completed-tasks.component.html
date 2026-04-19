@@ -1,0 +1,97 @@
+<div class="min-h-screen bg-slate-100">
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center gap-3 px-6 py-4">
+      <button
+        (click)="goBack()"
+        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+      >
+        Volver
+      </button>
+
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Tareas completadas</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Histórico de tareas ya realizadas en este departamento.
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-6 py-8">
+    <div
+      *ngIf="loading"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+    >
+      Cargando tareas completadas...
+    </div>
+
+    <div
+      *ngIf="!loading && errorMessage"
+      class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+    >
+      {{ errorMessage }}
+    </div>
+
+    <section
+      *ngIf="!loading"
+      class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h3 class="text-xl font-bold text-slate-800">Histórico del departamento</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Consulta quién completó cada tarea y cuándo lo hizo.
+          </p>
+        </div>
+
+        <input
+          [(ngModel)]="searchTerm"
+          type="text"
+          placeholder="Filtrar por ticket, paso o funcionario"
+          class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 md:w-96"
+        />
+      </div>
+
+      <div
+        *ngIf="filteredCompletedTasks.length === 0"
+        class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500"
+      >
+        No hay tareas completadas para mostrar.
+      </div>
+
+      <div class="grid gap-4" *ngIf="filteredCompletedTasks.length > 0">
+        <article
+          *ngFor="let item of filteredCompletedTasks"
+          class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+        >
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div class="flex flex-wrap items-center gap-3">
+                <h4 class="text-lg font-bold text-slate-800">{{ item.nodeLabel }}</h4>
+
+                <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                  Completada
+                </span>
+              </div>
+
+              <div class="mt-4 grid gap-2 text-sm text-slate-500">
+                <p><span class="font-semibold text-slate-700">Ticket:</span> {{ item.ticketId }}</p>
+                <p><span class="font-semibold text-slate-700">Funcionario:</span> {{ item.assignedUserName || 'Sin nombre' }}</p>
+                <p><span class="font-semibold text-slate-700">Departamento:</span> {{ item.departmentName }}</p>
+                <p><span class="font-semibold text-slate-700">Completado:</span> {{ item.completedAt || 'Sin fecha' }}</p>
+                <p>
+                  <span class="font-semibold text-slate-700">Trámite:</span>
+                  {{
+                    item.requiresTramite
+                      ? (item.tramiteTemplateName || 'Sí')
+                      : 'No'
+                  }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</div>

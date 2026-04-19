@@ -1,7 +1,5 @@
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
-export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
-
 export interface Ticket {
   id: string;
   projectId: string;
@@ -27,33 +25,6 @@ export interface Ticket {
   updatedAt: string;
 
   metadata?: Record<string, any>;
-}
-
-export interface WorkflowTask {
-  id: string;
-  projectId: string;
-  ticketId: string;
-
-  workflowId: string;
-  nodeId: string;
-  nodeLabel: string;
-
-  departmentId?: string;
-  departmentName?: string;
-
-  assignedUserId?: string;
-  assignedUserName?: string;
-
-  requiresTramite: boolean;
-  tramiteTemplateId?: string;
-  tramiteTemplateName?: string;
-
-  status: TaskStatus;
-  submittedTramiteData?: Record<string, any>;
-
-  createdAt: string;
-  startedAt?: string;
-  completedAt?: string;
 }
 
 export interface CreateTicketRequest {

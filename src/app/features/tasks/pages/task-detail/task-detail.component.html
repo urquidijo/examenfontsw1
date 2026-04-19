@@ -1,0 +1,165 @@
+<div class="min-h-screen bg-slate-100">
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center gap-3 px-6 py-4">
+      <button
+        (click)="goBack()"
+        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+      >
+        Volver
+      </button>
+
+      <div>
+        <h1 class="text-2xl font-bold text-slate-800">Detalle de tarea</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Completa el paso actual del ticket.
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-6 py-8">
+    <div
+      *ngIf="loading"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+    >
+      Cargando detalle...
+    </div>
+
+    <div
+      *ngIf="!loading && errorMessage"
+      class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+    >
+      {{ errorMessage }}
+    </div>
+
+    <ng-container *ngIf="!loading && task">
+      <section class="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="text-2xl font-bold text-slate-800">{{ task.nodeLabel }}</h2>
+
+          <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            {{ task.departmentName }}
+          </span>
+        </div>
+
+        <div class="mt-4 grid gap-2 text-sm text-slate-500">
+          <p><span class="font-semibold text-slate-700">Ticket:</span> {{ task.ticketId }}</p>
+          <p>
+            <span class="font-semibold text-slate-700">Asignado a:</span>
+            {{ task.assignedUserName || 'Sin asignar' }}
+          </p>
+          <p>
+            <span class="font-semibold text-slate-700">Trámite:</span>
+            {{
+              task.requiresTramite
+                ? (task.tramiteTemplateName || 'Requerido')
+                : 'No requiere trámite'
+            }}
+          </p>
+        </div>
+      </section>
+
+      <section
+        *ngIf="task.requiresTramite"
+        class="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div class="mb-4">
+          <h3 class="text-xl font-bold text-slate-800">Formulario del trámite</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Completa los datos solicitados por el formulario diseñado para este departamento.
+          </p>
+        </div>
+
+        <div
+          *ngIf="loadingTramite"
+          class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500"
+        >
+          Cargando formulario...
+        </div>
+
+        <form *ngIf="!loadingTramite && tramiteTemplate" [formGroup]="tramiteForm" class="grid gap-4">
+          <div *ngFor="let field of tramiteTemplate.fields">
+            <label
+              *ngIf="field.type !== 'CHECKBOX'"
+              class="mb-2 block text-sm font-medium text-slate-700"
+            >
+              {{ field.label }}
+              <span *ngIf="field.required" class="text-red-500">*</span>
+            </label>
+
+            <input
+              *ngIf="field.type === 'TEXT'"
+              type="text"
+              [formControlName]="field.id"
+              [placeholder]="field.placeholder || ''"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+
+            <textarea
+              *ngIf="field.type === 'TEXTAREA'"
+              [formControlName]="field.id"
+              [placeholder]="field.placeholder || ''"
+              rows="4"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            ></textarea>
+
+            <input
+              *ngIf="field.type === 'NUMBER'"
+              type="number"
+              [formControlName]="field.id"
+              [placeholder]="field.placeholder || ''"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+
+            <input
+              *ngIf="field.type === 'DATE'"
+              type="date"
+              [formControlName]="field.id"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            />
+
+            <select
+              *ngIf="field.type === 'SELECT'"
+              [formControlName]="field.id"
+              class="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="">Selecciona una opción</option>
+              <option *ngFor="let option of field.options || []" [value]="option">
+                {{ option }}
+              </option>
+            </select>
+
+            <label
+              *ngIf="field.type === 'CHECKBOX'"
+              class="flex items-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-700"
+            >
+              <input type="checkbox" [formControlName]="field.id" />
+              <span>{{ field.label }}</span>
+            </label>
+
+            <div
+              *ngIf="field.type === 'FILE'"
+              class="rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-700"
+            >
+              El campo archivo se conectará después con almacenamiento externo.
+            </div>
+
+            <p *ngIf="isFieldInvalid(field.id)" class="mt-2 text-sm text-red-500">
+              Este campo es obligatorio
+            </p>
+          </div>
+        </form>
+      </section>
+
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <button
+          (click)="requestCompleteTask()"
+          [disabled]="completing || loadingTramite"
+          class="rounded-2xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ completing ? 'Procesando...' : 'Completar paso' }}
+        </button>
+      </section>
+    </ng-container>
+  </main>
+</div>

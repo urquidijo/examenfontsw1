@@ -74,4 +74,8 @@ export class ProjectDetailComponent implements OnInit {
   openTickets(): void {
     this.router.navigate(['/projects', this.projectId, 'tickets']);
   }
+
+  openTasks(): void {
+    this.router.navigate(['/projects', this.projectId, 'tasks']);
+  }
 }

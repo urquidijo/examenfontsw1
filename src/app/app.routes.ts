@@ -14,7 +14,11 @@ import { ProjectTramitesComponent } from './features/tramites/pages/project-tram
 import { ProjectDepartmentsComponent } from './features/departments/pages/project-departments/project-departments.component';
 import { WorkflowDesignerComponent } from './features/workflow/pages/workflow-designer/workflow-designer.component';
 import { ProjectTicketsComponent } from './features/ticket/pages/project-tickets/project-tickets.component';
-
+// import { ProjectTasksComponent } from './features/tasks/pages/project-tasks/project-tasks.component';
+import { ProjectTaskDepartmentsComponent } from './features/tasks/pages/project-task-departments/project-task-departments.component';
+import { DepartmentTasksComponent } from './features/tasks/pages/department-tasks/department-tasks.component';
+import { TaskDetailComponent } from './features/tasks/pages/task-detail/task-detail.component';
+import { DepartmentCompletedTasksComponent } from './features/tasks/pages/department-completed-tasks/department-completed-tasks.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -56,6 +60,15 @@ export const routes: Routes = [
   { path: 'projects/:id/tramites', component: ProjectTramitesComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/tickets', component: ProjectTicketsComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/tasks', component: ProjectTaskDepartmentsComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/tasks/departments/:departmentId', component: DepartmentTasksComponent, canActivate: [authGuard] },
+
+  { path: 'projects/:id/tasks/:taskId', component: TaskDetailComponent, canActivate: [authGuard] }, 
+
+  { path: 'projects/:id/tasks/departments/:departmentId/completed', component: DepartmentCompletedTasksComponent, canActivate: [authGuard] },
+  // { path: 'projects/:id/tasks', component: ProjectTasksComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/workflows', component: ProjectWorkflowsComponent, canActivate: [authGuard] },
 
