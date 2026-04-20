@@ -287,6 +287,19 @@ export class TaskDetailComponent implements OnInit {
     const control = this.tramiteForm.get(fieldId);
     return !!control && control.invalid && (control.touched || control.dirty);
   }
+  
+  getTaskStatusLabel(status: string): string {
+    switch (status) {
+      case 'PENDING':
+        return 'Pendiente';
+      case 'IN_PROGRESS':
+        return 'En proceso';
+      case 'DONE':
+        return 'Completada';
+      default:
+        return status;
+    }
+  }
 
   isDecisionInvalid(): boolean {
     return this.isDecisionTask && !this.selectedDecisionResult;

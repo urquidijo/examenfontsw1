@@ -1,40 +1,94 @@
 <div class="min-h-screen bg-slate-100">
   <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-      <div class="flex items-center gap-3">
-        <button
-          (click)="goBack()"
-          class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-        >
-          Volver
-        </button>
+    <div class="mx-auto flex max-w-7xl items-center gap-3 px-6 py-4">
+      <button
+        (click)="goBack()"
+        class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+      >
+        Volver
+      </button>
 
-        <div>
-          <h1 class="text-2xl font-bold text-slate-800">Detalle de tarea</h1>
-          <p class="mt-1 text-sm text-slate-500">
-            Revisa la tarea asignada y complétala cuando corresponda.
-          </p>
-        </div>
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">NexaFlow</p>
+        <h1 class="text-2xl font-bold text-slate-800">Detalle de tarea</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Revisa la tarea asignada y complétala cuando corresponda.
+        </p>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto max-w-6xl px-6 py-8">
+  <main class="mx-auto max-w-7xl px-6 py-8">
     <div
       *ngIf="loading"
-      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm"
     >
       Cargando tarea...
     </div>
 
     <div
       *ngIf="!loading && errorMessage"
-      class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+      class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600 shadow-sm"
     >
       {{ errorMessage }}
     </div>
 
     <ng-container *ngIf="!loading && task">
+      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div class="bg-linear-to-r from-slate-900 via-slate-800 to-cyan-900 px-6 py-8 text-white">
+          <div class="grid gap-6 lg:grid-cols-[1.4fr_0.9fr] lg:items-center">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+                Tarea asignada
+              </p>
+              <h2 class="mt-2 text-3xl font-bold">{{ task.nodeLabel }}</h2>
+              <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                Atiende esta tarea, revisa la información del ticket asociado y completa la acción requerida para continuar el flujo.
+              </p>
+
+              <div class="mt-5 flex flex-wrap items-center gap-3 text-sm">
+                <span
+                  class="rounded-full px-3 py-1.5 font-semibold"
+                  [ngClass]="{
+                    'border border-amber-200 bg-amber-100 text-amber-700': task.status === 'PENDING',
+                    'border border-blue-200 bg-blue-100 text-blue-700': task.status === 'IN_PROGRESS',
+                    'border border-green-200 bg-green-100 text-green-700': task.status === 'DONE'
+                  }"
+                >
+                  {{ getTaskStatusLabel(task.status) }}
+                </span>
+
+                <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-slate-100">
+                  Departamento: {{ task.departmentName || 'Sin departamento' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                <p class="text-xs uppercase tracking-wide text-cyan-200">Ticket</p>
+                <p class="mt-2 text-sm font-semibold text-white">
+                  {{ task.ticket?.title || task.ticketId }}
+                </p>
+              </div>
+
+              <div class="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                <p class="text-xs uppercase tracking-wide text-cyan-200">Cliente</p>
+                <p class="mt-2 text-sm font-semibold text-white">
+                  {{ task.ticket?.clientName || 'No especificado' }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
+          <p class="text-sm text-slate-600">
+            Revisa primero los detalles del ticket y luego completa la tarea según el tipo de acción requerida.
+          </p>
+        </div>
+      </section>
+
       <section
         *ngIf="task.ticket"
         class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
@@ -65,7 +119,7 @@
 
           <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 md:col-span-2">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Descripción</p>
-            <p class="mt-1 text-sm text-slate-800">
+            <p class="mt-1 text-sm leading-6 text-slate-800">
               {{ task.ticket.description || 'Sin descripción' }}
             </p>
           </div>
@@ -86,7 +140,7 @@
 
           <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Correo</p>
-            <p class="mt-1 text-sm text-slate-800">
+            <p class="mt-1 break-all text-sm text-slate-800">
               {{ task.ticket.clientEmail || 'No especificado' }}
             </p>
           </div>
@@ -113,7 +167,7 @@
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {{ item.key }}
               </p>
-              <p class="mt-1 text-sm text-slate-800">
+              <p class="mt-1 wrap-break-word text-sm text-slate-800">
                 {{ item.value }}
               </p>
             </div>
@@ -158,12 +212,14 @@
       >
         <div class="mb-5">
           <h3 class="text-xl font-bold text-slate-800">Decisión</h3>
-          <p class="mt-1 text-sm text-slate-500">Selecciona una opción para continuar el flujo.</p>
+          <p class="mt-1 text-sm text-slate-500">
+            Selecciona una opción para continuar el flujo.
+          </p>
         </div>
 
         <div
           *ngIf="task.decisionQuestion"
-          class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700"
+          class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700"
         >
           {{ task.decisionQuestion }}
         </div>

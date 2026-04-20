@@ -10,9 +10,10 @@
         </button>
 
         <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">NexaFlow</p>
           <h1 class="text-2xl font-bold text-slate-800">Gestión del proyecto</h1>
           <p class="mt-1 text-sm text-slate-500">
-            Administra workflows, usuarios, departamentos y trámites.
+            Configura tu proyecto paso a paso para comenzar a operar correctamente.
           </p>
         </div>
       </div>
@@ -35,94 +36,280 @@
     </div>
 
     <ng-container *ngIf="!loading && project">
-      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 class="text-2xl font-bold text-slate-800">{{ project.name }}</h2>
-        <p class="mt-3 text-sm leading-6 text-slate-600">
-          {{ project.description || 'Sin descripción' }}
-        </p>
+      <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div class="bg-linear-to-r from-slate-900 via-slate-800 to-cyan-900 px-6 py-8 text-white">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="max-w-3xl">
+              <p class="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+                Proyecto activo
+              </p>
+              <h2 class="mt-2 text-3xl font-bold">{{ project.name }}</h2>
+              <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                {{ project.description || 'Sin descripción' }}
+              </p>
+            </div>
+
+            <div class="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur">
+              <p class="text-sm font-semibold text-cyan-200">Ruta recomendada</p>
+              <p class="mt-2 text-sm leading-6 text-slate-100">
+                Primero configura usuarios y trámites, luego departamentos, después workflows y finalmente tickets y tareas.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
+          <div class="flex flex-wrap items-center gap-3 text-sm">
+            <span class="rounded-full bg-white px-3 py-1.5 font-medium text-slate-700 border border-slate-200">
+              1. Usuarios y trámites
+            </span>
+            <span class="text-slate-400">→</span>
+            <span class="rounded-full bg-white px-3 py-1.5 font-medium text-slate-700 border border-slate-200">
+              2. Departamentos
+            </span>
+            <span class="text-slate-400">→</span>
+            <span class="rounded-full bg-white px-3 py-1.5 font-medium text-slate-700 border border-slate-200">
+              3. Workflows
+            </span>
+            <span class="text-slate-400">→</span>
+            <span class="rounded-full bg-white px-3 py-1.5 font-medium text-slate-700 border border-slate-200">
+              4. Tickets y tareas
+            </span>
+          </div>
+        </div>
       </section>
 
-      <section class="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <section class="mt-8">
+        <div class="mb-4">
+          <h3 class="text-xl font-bold text-slate-800">Ruta de configuración</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Sigue estos pasos para dejar el proyecto listo para operar.
+          </p>
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-4">
+          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-100 text-lg font-bold text-cyan-700">
+                1
+              </span>
+              <span class="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700">
+                Inicio
+              </span>
+            </div>
+
+            <h4 class="mt-5 text-lg font-bold text-slate-800">Usuarios y trámites</h4>
+            <p class="mt-2 text-sm leading-6 text-slate-500">
+              Primero define quién participa en el proyecto y qué trámites se gestionarán.
+            </p>
+
+            <div class="mt-5 space-y-3">
+              <button
+                (click)="openUsers()"
+                class="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                Gestionar usuarios
+              </button>
+
+              <button
+                (click)="openCases()"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Gestionar trámites
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-lg font-bold text-amber-700">
+                2
+              </span>
+              <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                Organización
+              </span>
+            </div>
+
+            <h4 class="mt-5 text-lg font-bold text-slate-800">Departamentos</h4>
+            <p class="mt-2 text-sm leading-6 text-slate-500">
+              Luego crea las áreas o departamentos que participarán dentro del flujo de trabajo.
+            </p>
+
+            <div class="mt-5">
+              <button
+                (click)="openDepartments()"
+                class="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                Gestionar departamentos
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-lg font-bold text-blue-700">
+                3
+              </span>
+              <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                Diseño
+              </span>
+            </div>
+
+            <h4 class="mt-5 text-lg font-bold text-slate-800">Workflows</h4>
+            <p class="mt-2 text-sm leading-6 text-slate-500">
+              Cuando ya tengas usuarios, trámites y departamentos, diseña el flujo de trabajo del proyecto.
+            </p>
+
+            <div class="mt-5">
+              <button
+                (click)="openWorkflows()"
+                class="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                Ir a workflows
+              </button>
+            </div>
+          </article>
+
+          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-lg font-bold text-emerald-700">
+                4
+              </span>
+              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Operación
+              </span>
+            </div>
+
+            <h4 class="mt-5 text-lg font-bold text-slate-800">Tickets y tareas</h4>
+            <p class="mt-2 text-sm leading-6 text-slate-500">
+              Finalmente administra la operación diaria con tickets y tareas vinculadas al flujo ya configurado.
+            </p>
+
+            <div class="mt-5 space-y-3">
+              <button
+                (click)="openTickets()"
+                class="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                Ver tickets
+              </button>
+
+              <button
+                (click)="openTasks()"
+                class="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Ver tareas
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="mt-8 grid gap-6 lg:grid-cols-2">
         <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-800">Workflows</h3>
+          <h3 class="text-lg font-bold text-slate-800">Vista por módulos</h3>
           <p class="mt-2 text-sm text-slate-500">
-            Diseña y administra los flujos de trabajo del proyecto.
+            También puedes entrar directamente a cualquier módulo desde aquí.
           </p>
 
-          <button
-            (click)="openWorkflows()"
-            class="mt-5 w-full rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700"
-          >
-            Ir a workflows
-          </button>
+          <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            <button
+              (click)="openUsers()"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
+            >
+              <p class="text-sm font-semibold text-slate-800">Usuarios</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Miembros, permisos y participación.
+              </p>
+            </button>
+
+            <button
+              (click)="openCases()"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
+            >
+              <p class="text-sm font-semibold text-slate-800">Trámites</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Gestión y seguimiento de casos.
+              </p>
+            </button>
+
+            <button
+              (click)="openDepartments()"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
+            >
+              <p class="text-sm font-semibold text-slate-800">Departamentos</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Áreas responsables dentro del flujo.
+              </p>
+            </button>
+
+            <button
+              (click)="openWorkflows()"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
+            >
+              <p class="text-sm font-semibold text-slate-800">Workflows</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Diseño de flujos y automatización.
+              </p>
+            </button>
+
+            <button
+              (click)="openTickets()"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
+            >
+              <p class="text-sm font-semibold text-slate-800">Tickets</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Gestión de incidencias y seguimiento.
+              </p>
+            </button>
+
+            <button
+              (click)="openTasks()"
+              class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-slate-300 hover:bg-white"
+            >
+              <p class="text-sm font-semibold text-slate-800">Tareas</p>
+              <p class="mt-1 text-xs leading-5 text-slate-500">
+                Trabajo operativo asociado a tickets.
+              </p>
+            </button>
+          </div>
         </article>
 
         <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-800">Usuarios</h3>
+          <h3 class="text-lg font-bold text-slate-800">Consejo para el usuario</h3>
           <p class="mt-2 text-sm text-slate-500">
-            Administra miembros, permisos y participación dentro del proyecto.
+            Este proyecto funciona mejor cuando se configura en el orden correcto.
           </p>
 
-          <button
-            (click)="openUsers()"
-            class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            Ver usuarios
-          </button>
+          <div class="mt-6 space-y-4">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-sm font-semibold text-slate-800">Paso 1</p>
+              <p class="mt-1 text-sm text-slate-600">
+                Agrega usuarios y define los trámites que se van a gestionar.
+              </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-sm font-semibold text-slate-800">Paso 2</p>
+              <p class="mt-1 text-sm text-slate-600">
+                Organiza los departamentos que intervendrán en el proceso.
+              </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-sm font-semibold text-slate-800">Paso 3</p>
+              <p class="mt-1 text-sm text-slate-600">
+                Diseña el workflow asociando responsables y etapas.
+              </p>
+            </div>
+
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-sm font-semibold text-slate-800">Paso 4</p>
+              <p class="mt-1 text-sm text-slate-600">
+                Empieza la operación con tickets y tareas una vez que el flujo esté listo.
+              </p>
+            </div>
+          </div>
         </article>
-
-        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-800">Departamentos</h3>
-          <p class="mt-2 text-sm text-slate-500">
-            Crea departamentos para luego asociarlos a nodos y responsables.
-          </p>
-
-          <button
-            (click)="openDepartments()"
-            class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            Ver departamentos
-          </button>
-        </article>
-
-        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-800">Trámites</h3>
-          <p class="mt-2 text-sm text-slate-500">
-            Ejecuta y haz seguimiento de los trámites que usan el workflow.
-          </p>
-
-          <button
-            (click)="openCases()"
-            class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            Ver trámites
-          </button>
-        </article>
-
-        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-800">Tickets</h3>
-          <p class="mt-2 text-sm text-slate-500">Crea y administra tickets para el proyecto.</p>
-
-          <button
-            (click)="openTickets()"
-            class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            Ver tickets
-          </button>
-        </article>
-
-        <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-bold text-slate-800">Tareas</h3>
-          <p class="mt-2 text-sm text-slate-500">Administra las tareas asociadas a los tickets.</p>
-
-          <button
-            (click)="openTasks()"
-            class="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
-          >
-            Ver tareas
-          </button>
-        </article>
-
       </section>
     </ng-container>
   </main>

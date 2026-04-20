@@ -51,6 +51,12 @@ export class DashboardComponent implements OnInit {
     description: [''],
   });
 
+  showNotificationsPanel = false;
+
+  toggleNotificationsPanel(): void {
+    this.showNotificationsPanel = !this.showNotificationsPanel;
+  }
+
   ngOnInit(): void {
     this.user = this.authService.getUser();
     this.loadDashboardData();
@@ -231,8 +237,7 @@ export class DashboardComponent implements OnInit {
       },
       error: (error) => {
         this.processingInvitationId = null;
-        this.invitationErrorMessage =
-          error?.error?.message || 'No se pudo aceptar la invitación';
+        this.invitationErrorMessage = error?.error?.message || 'No se pudo aceptar la invitación';
         this.cdr.detectChanges();
       },
     });
@@ -253,8 +258,7 @@ export class DashboardComponent implements OnInit {
       },
       error: (error) => {
         this.processingInvitationId = null;
-        this.invitationErrorMessage =
-          error?.error?.message || 'No se pudo rechazar la invitación';
+        this.invitationErrorMessage = error?.error?.message || 'No se pudo rechazar la invitación';
         this.cdr.detectChanges();
       },
     });

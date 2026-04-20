@@ -10,6 +10,7 @@
         </button>
 
         <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-600">NexaFlow</p>
           <h1 class="text-2xl font-bold text-slate-800">Tickets del departamento</h1>
           <p class="mt-1 text-sm text-slate-500">
             Aquí solo ves tus tareas activas de este departamento.
@@ -19,7 +20,7 @@
 
       <button
         (click)="openCompletedTasks()"
-        class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+        class="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
       >
         Ver tareas completadas
       </button>
@@ -29,84 +30,145 @@
   <main class="mx-auto max-w-7xl px-6 py-8">
     <div
       *ngIf="loading"
-      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm"
     >
       Cargando tareas...
     </div>
 
     <div
       *ngIf="!loading && errorMessage"
-      class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+      class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600 shadow-sm"
     >
       {{ errorMessage }}
     </div>
 
-    <section *ngIf="!loading" class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div class="mb-6">
-        <h3 class="text-xl font-bold text-slate-800">Tareas activas</h3>
-        <p class="mt-1 text-sm text-slate-500">
-          Estas son las tareas que aún debes atender en este departamento.
+    <section *ngIf="!loading" class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div class="bg-linear-to-r from-slate-900 via-slate-800 to-cyan-900 px-6 py-8 text-white">
+        <div class="grid gap-6 lg:grid-cols-[1.4fr_0.9fr] lg:items-center">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+              Bandeja operativa
+            </p>
+            <h2 class="mt-2 text-3xl font-bold">Tareas activas del departamento</h2>
+            <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+              Revisa las tareas que todavía requieren atención dentro de este departamento y entra al detalle para gestionarlas.
+            </p>
+
+            <div class="mt-5 flex flex-wrap items-center gap-3 text-sm">
+              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-slate-100">
+                Tareas pendientes
+              </span>
+              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-slate-100">
+                Seguimiento por ticket
+              </span>
+              <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-slate-100">
+                Acceso rápido
+              </span>
+            </div>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+              <p class="text-xs uppercase tracking-wide text-cyan-200">Tareas activas</p>
+              <p class="mt-2 text-2xl font-bold text-white">{{ tasks.length }}</p>
+              <p class="mt-1 text-xs text-slate-200">Pendientes de atención</p>
+            </div>
+
+            <div class="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+              <p class="text-xs uppercase tracking-wide text-cyan-200">Vista</p>
+              <p class="mt-2 text-base font-bold text-white">Departamento actual</p>
+              <p class="mt-1 text-xs text-slate-200">Solo tus tareas activas</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
+        <p class="text-sm text-slate-600">
+          Entra a cada tarea para revisar el ticket asociado y continuar su ejecución.
         </p>
       </div>
 
-      <div
-        *ngIf="tasks.length === 0"
-        class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500"
-      >
-        No hay tickets pendientes en este departamento.
-      </div>
+      <div class="p-6">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-800">Tareas activas</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Estas son las tareas que aún debes atender en este departamento.
+          </p>
+        </div>
 
-      <div class="grid gap-4" *ngIf="tasks.length > 0">
-        <article
-          *ngFor="let task of tasks"
-          class="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+        <div
+          *ngIf="tasks.length === 0"
+          class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500"
         >
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-3">
-                <h4 class="text-lg font-bold text-slate-800">{{ task.nodeLabel }}</h4>
+          No hay tickets pendientes en este departamento.
+        </div>
 
-                <span
-                  class="rounded-full px-3 py-1 text-xs font-semibold"
-                  [ngClass]="{
-                    'bg-amber-100 text-amber-700': task.status === 'PENDING',
-                    'bg-blue-100 text-blue-700': task.status === 'IN_PROGRESS',
-                    'bg-green-100 text-green-700': task.status === 'DONE',
-                  }"
+        <div class="grid gap-4" *ngIf="tasks.length > 0">
+          <article
+            *ngFor="let task of tasks"
+            class="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:border-slate-300 hover:bg-white"
+          >
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-3">
+                  <h4 class="text-lg font-bold text-slate-800">
+                    {{ task.nodeLabel }}
+                  </h4>
+
+                  <span
+                    class="rounded-full px-3 py-1 text-xs font-semibold"
+                    [ngClass]="{
+                      'bg-amber-100 text-amber-700': task.status === 'PENDING',
+                      'bg-blue-100 text-blue-700': task.status === 'IN_PROGRESS',
+                      'bg-green-100 text-green-700': task.status === 'DONE'
+                    }"
+                  >
+                    {{ getTaskStatusLabel(task.status) }}
+                  </span>
+                </div>
+
+                <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Ticket
+                    </p>
+                    <p class="mt-1 font-semibold text-slate-800">
+                      {{ task.ticket?.title || task.ticketId }}
+                    </p>
+                  </div>
+
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Cliente
+                    </p>
+                    <p class="mt-1 font-semibold text-slate-800">
+                      {{ task.ticket?.clientName || 'No especificado' }}
+                    </p>
+                  </div>
+
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Departamento
+                    </p>
+                    <p class="mt-1 font-semibold text-slate-800">
+                      {{ task.departmentName || 'Sin departamento' }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 flex-wrap gap-2">
+                <button
+                  (click)="openTask(task.id)"
+                  class="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
                 >
-                  {{ getTaskStatusLabel(task.status) }}
-                </span>
-              </div>
-
-              <div class="mt-4 grid gap-2 text-sm text-slate-500">
-                <p class="mt-4 text-sm text-slate-600">
-                  <span class="font-semibold text-slate-800">Ticket:</span>
-                  {{ task.ticket?.title || task.ticketId }}
-                </p>
-
-                <p class="mt-2 text-sm text-slate-600">
-                  <span class="font-semibold text-slate-800">Cliente:</span>
-                  {{ task.ticket?.clientName || 'No especificado' }}
-                </p>
-
-                <p class="mt-2 text-sm text-slate-600">
-                  <span class="font-semibold text-slate-800">Departamento:</span>
-                  {{ task.departmentName || 'Sin departamento' }}
-                </p>
-
+                  Abrir
+                </button>
               </div>
             </div>
-
-            <div class="flex flex-wrap gap-2">
-              <button
-                (click)="openTask(task.id)"
-                class="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Abrir
-              </button>
-            </div>
-          </div>
-        </article>
+          </article>
+        </div>
       </div>
     </section>
   </main>
