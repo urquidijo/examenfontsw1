@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import { Ticket, CreateTicketRequest } from '../models/ticket.model';
+import { Ticket, CreateTicketRequest, TicketMonitorResponse } from '../models/ticket.model';
 
 @Injectable({
   providedIn: 'root',
@@ -23,6 +23,12 @@ export class TicketService {
         responseType: 'blob',
         observe: 'response',
       },
+    );
+  }
+
+  getTicketMonitor(projectId: string, ticketId: string): Observable<TicketMonitorResponse> {
+    return this.http.get<TicketMonitorResponse>(
+      `${this.apiUrl}/projects/${projectId}/tickets/${ticketId}/monitor`,
     );
   }
 

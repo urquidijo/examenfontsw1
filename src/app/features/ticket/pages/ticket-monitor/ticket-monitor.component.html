@@ -1,0 +1,250 @@
+<div class="min-h-screen bg-slate-100">
+  <header class="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+      <div class="flex items-center gap-3">
+        <button
+          (click)="goBack()"
+          class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+        >
+          Volver
+        </button>
+
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">Monitoreo del ticket</h1>
+          <p class="mt-1 text-sm text-slate-500">
+            Seguimiento del recorrido del ticket por el workflow.
+          </p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <div
+      *ngIf="loading"
+      class="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500"
+    >
+      Cargando monitoreo...
+    </div>
+
+    <div
+      *ngIf="!loading && errorMessage"
+      class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-600"
+    >
+      {{ errorMessage }}
+    </div>
+
+    <ng-container *ngIf="!loading && monitor as data">
+      <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-3">
+              <h2 class="max-w-full wrap-break-word text-3xl font-bold text-slate-800">
+                {{ data.ticket.title }}
+              </h2>
+
+              <span
+                class="rounded-full px-3 py-1 text-xs font-semibold"
+                [ngClass]="{
+                  'border border-amber-200 bg-amber-100 text-amber-700': data.ticket.status === 'OPEN',
+                  'border border-blue-200 bg-blue-100 text-blue-700': data.ticket.status === 'IN_PROGRESS',
+                  'border border-green-200 bg-green-100 text-green-700': data.ticket.status === 'COMPLETED',
+                  'border border-red-200 bg-red-100 text-red-700': data.ticket.status === 'CANCELLED'
+                }"
+              >
+                {{ getTicketStatusLabel(data.ticket.status) }}
+              </span>
+            </div>
+
+            <p class="mt-3 wrap-break-word text-sm text-slate-500">
+              {{ data.ticket.description || 'Sin descripción' }}
+            </p>
+          </div>
+
+          <div class="w-full xl:max-w-sm">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Estado actual
+              </p>
+
+              <p class="mt-2 text-sm font-semibold text-slate-800">
+                {{
+                  data.summary.currentDepartments.length
+                    ? data.summary.currentDepartments.join(', ')
+                    : 'Sin departamento actual'
+                }}
+              </p>
+
+              <p class="mt-2 text-xs text-slate-500">
+                {{
+                  data.summary.parallelActive
+                    ? 'El ticket tiene ramas activas en paralelo.'
+                    : 'Seguimiento del punto actual del flujo.'
+                }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Workflow</p>
+            <p class="mt-2 wrap-break-word text-sm font-semibold text-slate-800">
+              {{ data.ticket.workflowName || 'No definido' }}
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Inicio</p>
+            <p class="mt-2 text-sm font-semibold text-slate-800">
+              {{ formatDate(data.summary.startedAt) }}
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Duración total</p>
+            <p class="mt-2 text-sm font-semibold text-slate-800">
+              {{ formatDuration(data.summary.totalDurationMinutes) }}
+            </p>
+          </div>
+
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Estado del ticket</p>
+            <p class="mt-2 text-sm font-semibold text-slate-800">
+              {{ getTicketStatusLabel(data.ticket.status) }}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-6">
+          <h3 class="text-xl font-bold text-slate-800">Línea de tiempo</h3>
+          <p class="mt-1 text-sm text-slate-500">
+            Recorrido del ticket por nodos y departamentos.
+          </p>
+        </div>
+
+        <div
+          *ngIf="!data.timeline.length"
+          class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500"
+        >
+          No hay historial disponible para este ticket.
+        </div>
+
+        <div *ngIf="data.timeline.length" class="relative">
+          <div class="absolute bottom-0 left-4 top-0 w-px bg-slate-200"></div>
+
+          <div *ngFor="let step of data.timeline; let last = last" class="relative grid grid-cols-[2rem_1fr] gap-4 pb-5">
+            <div class="relative flex justify-center">
+              <div
+                class="relative z-10 mt-5 h-8 w-8 rounded-full border-4 border-white shadow-sm"
+                [ngClass]="{
+                  'bg-green-500': isCompleted(step),
+                  'bg-blue-600': isCurrent(step)
+                }"
+              ></div>
+            </div>
+
+            <article
+              class="rounded-3xl border p-5 shadow-sm transition"
+              [ngClass]="{
+                'border-slate-200 bg-slate-50': isCompleted(step),
+                'border-blue-300 bg-blue-50 ring-4 ring-blue-100': isCurrent(step)
+              }"
+            >
+              <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h4 class="wrap-break-word text-xl font-bold text-slate-800">
+                      {{ step.nodeLabel }}
+                    </h4>
+
+                    <span
+                      class="rounded-full px-3 py-1 text-xs font-semibold"
+                      [ngClass]="{
+                        'border border-green-200 bg-green-100 text-green-700': isCompleted(step),
+                        'border border-blue-200 bg-blue-100 text-blue-700': isCurrent(step)
+                      }"
+                    >
+                      {{ isCurrent(step) ? 'Actual' : 'Completado' }}
+                    </span>
+
+                    <span
+                      *ngIf="step.parallelGroupId"
+                      class="rounded-full border border-purple-200 bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700"
+                    >
+                      Paralelo
+                    </span>
+                  </div>
+
+                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Departamento
+                      </p>
+                      <p class="mt-1 font-semibold text-slate-800">
+                        {{ step.departmentName || 'No definido' }}
+                      </p>
+                    </div>
+
+                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+                      <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Responsable
+                      </p>
+                      <p class="mt-1 font-semibold text-slate-800">
+                        {{ step.assignedUserName || 'No asignado' }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    *ngIf="step.decisionResult"
+                    class="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+                  >
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Resultado de decisión
+                    </p>
+                    <p class="mt-1 font-semibold text-slate-800">
+                      {{ step.decisionResult }}
+                    </p>
+                  </div>
+
+                  <div
+                    *ngIf="isCurrent(step)"
+                    class="mt-4 rounded-2xl border border-blue-200 bg-white px-4 py-3 text-sm font-medium text-blue-700"
+                  >
+                    El ticket se encuentra actualmente en este punto del workflow.
+                  </div>
+                </div>
+
+                <div class="grid w-full gap-3 sm:grid-cols-3 xl:w-105 xl:min-w-105">
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Inicio</p>
+                    <p class="mt-2 text-sm font-semibold text-slate-800">
+                      {{ formatDate(step.startedAt) }}
+                    </p>
+                  </div>
+
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Fin</p>
+                    <p class="mt-2 text-sm font-semibold text-slate-800">
+                      {{ formatDate(step.completedAt) }}
+                    </p>
+                  </div>
+
+                  <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Duración</p>
+                    <p class="mt-2 text-sm font-semibold text-slate-800">
+                      {{ formatDuration(step.durationMinutes) }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </main>
+</div>

@@ -51,3 +51,41 @@ export interface CreateTicketRequest {
 
   metadata?: Record<string, any>;
 }
+
+export type TicketMonitorStepKind = 'COMPLETED' | 'CURRENT';
+
+export interface TicketMonitorStep {
+  kind: TicketMonitorStepKind;
+  nodeId: string;
+  nodeLabel: string;
+  nodeType?: string;
+
+  departmentId?: string;
+  departmentName?: string;
+
+  assignedUserId?: string;
+  assignedUserName?: string;
+
+  decisionResult?: string | null;
+
+  startedAt?: string | null;
+  completedAt?: string | null;
+
+  durationMinutes?: number | null;
+  parallelGroupId?: string | null;
+}
+
+export interface TicketMonitorSummary {
+  startedAt?: string | null;
+  completedAt?: string | null;
+  totalDurationMinutes?: number | null;
+  currentDepartments: string[];
+  currentNodeIds: string[];
+  parallelActive: boolean;
+}
+
+export interface TicketMonitorResponse {
+  ticket: Ticket;
+  summary: TicketMonitorSummary;
+  timeline: TicketMonitorStep[];
+}
