@@ -17,6 +17,12 @@ import { WorkflowService } from '../../services/workflow.service';
 import { DepartmentService } from '../../../departments/services/department.service';
 import { Department } from '../../../departments/models/department.model';
 import { WorkflowStatus } from '../../models/workflow.model';
+import { WorkflowAiService } from '../../services/workflow-ai.service';
+import {
+  AiDecisionOption,
+  AiWorkflowOperation,
+  AiWorkflowResponse,
+} from '../../models/ai-workflow.model';
 
 type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
@@ -31,6 +37,7 @@ type WorkflowNodeConfig = {
   departmentId?: string;
   departmentName?: string;
   instructions?: string;
+  aiAlias?: string;
 
   decisionMode?: 'MANUAL';
   decisionQuestion?: string;
@@ -53,6 +60,15 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   private departmentService = inject(DepartmentService);
   private platformId = inject(PLATFORM_ID);
   private cdr = inject(ChangeDetectorRef);
+  private workflowAiService = inject(WorkflowAiService);
+
+  aiPrompt = '';
+  aiWorking = false;
+
+  listening = false;
+  speechSupported = false;
+  autoSendVoiceCommand = true;
+  recognition: any = null;
 
   graph: any = null;
 
@@ -86,6 +102,60 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     return this.nodeForm.nodeType === 'decision';
   }
 
+  private safeUiUpdate(fn: () => void): void {
+    setTimeout(() => {
+      fn();
+      this.cdr.detectChanges();
+    }, 0);
+  }
+
+  private reconnectAroundNode(node: any): void {
+    const nodeId = node.id;
+    const edges = this.graph.getEdges?.() || [];
+
+    const incoming = edges.filter((edge: any) => {
+      const source = edge.getSource?.();
+      const target = edge.getTarget?.();
+
+      const sourceCell = typeof source === 'string' ? source : source?.cell;
+      const targetCell = typeof target === 'string' ? target : target?.cell;
+
+      return targetCell === nodeId && sourceCell !== nodeId;
+    });
+
+    const outgoing = edges.filter((edge: any) => {
+      const source = edge.getSource?.();
+      const target = edge.getTarget?.();
+
+      const sourceCell = typeof source === 'string' ? source : source?.cell;
+      const targetCell = typeof target === 'string' ? target : target?.cell;
+
+      return sourceCell === nodeId && targetCell !== nodeId;
+    });
+
+    for (const inEdge of incoming) {
+      const source = inEdge.getSource?.();
+      const sourceCell = typeof source === 'string' ? source : source?.cell;
+
+      for (const outEdge of outgoing) {
+        const target = outEdge.getTarget?.();
+        const targetCell = typeof target === 'string' ? target : target?.cell;
+
+        if (!sourceCell || !targetCell || sourceCell === targetCell) continue;
+        if (this.edgeExists(sourceCell, targetCell)) continue;
+
+        this.graph.addEdge(
+          this.buildEdge(
+            `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            sourceCell,
+            targetCell,
+          ),
+        );
+      }
+    }
+  }
+
+
   ensureDecisionConfig(): void {
     if (this.nodeForm.nodeType !== 'decision') {
       return;
@@ -115,6 +185,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     this.nodeForm.decisionOptions = [];
     this.selectedDecisionEdges = [];
   }
+
 
   loadDecisionEdges(): void {
     this.selectedDecisionEdges = [];
@@ -164,11 +235,109 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
 
+    this.speechSupported = this.hasSpeechRecognition();
+
     await this.initGraph();
     this.loadInitialData();
   }
 
+  private hasSpeechRecognition(): boolean {
+    if (!isPlatformBrowser(this.platformId)) return false;
+
+    const w = window as any;
+    return !!(w.SpeechRecognition || w.webkitSpeechRecognition);
+  }
+
+  toggleVoiceInput(): void {
+    if (this.listening) {
+      this.stopVoiceInput();
+      return;
+    }
+
+    this.startVoiceInput();
+  }
+
+  startVoiceInput(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    const w = window as any;
+    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      this.safeUiUpdate(() => {
+        this.speechSupported = false;
+        this.errorMessage = 'Tu navegador no soporta reconocimiento de voz';
+      });
+      return;
+    }
+
+    if (this.aiWorking || this.loading || this.isPublished) return;
+
+    this.recognition = new SpeechRecognition();
+    this.recognition.lang = 'es-ES';
+    this.recognition.interimResults = false;
+    this.recognition.continuous = false;
+    this.recognition.maxAlternatives = 1;
+
+    this.safeUiUpdate(() => {
+      this.errorMessage = '';
+      this.message = '';
+      this.listening = true;
+    });
+
+    this.recognition.onstart = () => {
+      this.safeUiUpdate(() => {
+        this.listening = true;
+      });
+    };
+
+    this.recognition.onresult = (event: any) => {
+      const transcript = event?.results?.[0]?.[0]?.transcript || '';
+
+      this.safeUiUpdate(() => {
+        this.aiPrompt = transcript.trim();
+      });
+    };
+
+    this.recognition.onerror = (event: any) => {
+      this.safeUiUpdate(() => {
+        this.listening = false;
+
+        if (event?.error !== 'no-speech' && event?.error !== 'aborted') {
+          this.errorMessage = 'No se pudo capturar el audio correctamente';
+        }
+      });
+    };
+
+    this.recognition.onend = () => {
+      const capturedPrompt = (this.aiPrompt || '').trim();
+
+      this.safeUiUpdate(() => {
+        this.listening = false;
+      });
+
+      if (this.autoSendVoiceCommand && capturedPrompt && !this.aiWorking) {
+        setTimeout(() => this.submitAiPrompt(), 0);
+      }
+    };
+
+    this.recognition.start();
+  }
+
+  stopVoiceInput(): void {
+    try {
+      this.recognition?.stop?.();
+    } catch {}
+
+    this.safeUiUpdate(() => {
+      this.listening = false;
+    });
+  }
+
   ngOnDestroy(): void {
+    try {
+      this.recognition?.stop?.();
+    } catch {}
     this.graph?.dispose?.();
   }
 
@@ -627,6 +796,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     return node?.attr?.('label/text') || node?.getAttrs?.()?.label?.text || '';
   }
 
+
   private buildNodePayload(
     nodeType: string,
     label: string,
@@ -638,10 +808,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       departmentId: '',
       departmentName: '',
       instructions: '',
+      aiAlias: '',
       ...extraData,
     };
   }
-
   private buildEdge(id: string, sourceCell: string, targetCell: string) {
     return {
       id,
@@ -1146,6 +1316,448 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
         },
       });
   }
+
+  private inferLocalIntentMode(prompt: string): 'replace' | 'patch' {
+  const p = (prompt || '').trim().toLowerCase();
+
+  const replaceIntent =
+    p.includes('crea un workflow') ||
+    p.includes('crear un workflow') ||
+    p.includes('crea un flujo') ||
+    p.includes('crear un flujo') ||
+    p.includes('haz un workflow') ||
+    p.includes('hazme un workflow') ||
+    p.includes('genera un workflow') ||
+    p.includes('nuevo workflow') ||
+    p.includes('nuevo flujo') ||
+    p.includes('desde cero') ||
+    p.includes('comienza de cero') ||
+    p.includes('empieza de cero') ||
+    p.includes('reemplaza todo');
+
+  const patchIntent =
+    p.includes('agrega') ||
+    p.includes('añade') ||
+    p.includes('aumenta') ||
+    p.includes('inserta') ||
+    p.includes('conecta') ||
+    p.includes('renombra') ||
+    p.includes('cambia') ||
+    p.includes('edita') ||
+    p.includes('modifica') ||
+    p.includes('elimina') ||
+    p.includes('borra') ||
+    p.includes('quita');
+
+  if (replaceIntent && !patchIntent) return 'replace';
+  return 'patch';
+}
+
+private getWorkflowSnapshot(): { nodes: any[]; edges: any[] } {
+  const json = this.graph?.toJSON?.() || {};
+  const cells = (json.cells || []) as any[];
+
+  const nodes = cells
+    .filter((c) => !c.source)
+    .map((n: any) => ({
+      id: n.id,
+      label: n.label || n.data?.label || '',
+      nodeType: n.data?.nodeType || '',
+      aiAlias: n.data?.aiAlias || '',
+      departmentName: n.data?.departmentName || '',
+      decisionQuestion: n.data?.decisionQuestion || '',
+      decisionOptions: n.data?.decisionOptions || [],
+    }));
+
+  const edges = cells
+    .filter((c) => !!c.source && !!c.target)
+    .map((e: any) => ({
+      id: e.id,
+      source: e.source?.cell || '',
+      target: e.target?.cell || '',
+      conditionValue: e.data?.conditionValue || e.conditionValue || '',
+      label: e.labels?.[0]?.attrs?.label?.text || '',
+    }));
+
+  return { nodes, edges };
+}
+
+private getAllNodes(): any[] {
+  return this.graph?.getNodes?.() || [];
+}
+
+private getNextAiAlias(): string {
+  const nodes = this.getAllNodes();
+  let max = 0;
+
+  for (const node of nodes) {
+    const alias = node?.getData?.()?.aiAlias || '';
+    const match = /^nodo(\d+)$/i.exec(alias);
+    if (match) {
+      max = Math.max(max, Number(match[1]));
+    }
+  }
+
+  return `nodo${max + 1}`;
+}
+
+private getDefaultLabelForType(nodeType: NodeType): string {
+  switch (nodeType) {
+    case 'start':
+      return 'Inicio';
+    case 'task':
+      return 'Actividad';
+    case 'decision':
+      return 'Decisión';
+    case 'fork':
+      return 'Fork';
+    case 'join':
+      return 'Join';
+    case 'end':
+      return 'Fin';
+    default:
+      return 'Actividad';
+  }
+}
+
+private findNodeByTarget(target: string): any | null {
+  if (!this.graph || !target) return null;
+
+  const byId = this.graph.getCellById?.(target);
+  if (byId && !byId.isEdge?.()) return byId;
+
+  const normalized = target.trim().toLowerCase();
+
+  const node = this.getAllNodes().find((n: any) => {
+    const data = n.getData?.() || {};
+    const alias = (data.aiAlias || '').toLowerCase();
+    const label = (data.label || this.getNodeLabel(n) || '').toLowerCase();
+
+    return alias === normalized || label === normalized;
+  });
+
+  return node || null;
+}
+
+private normalizeDecisionOptions(options?: AiDecisionOption[]): DecisionOption[] {
+  if (options && options.length >= 2) {
+    return options.map((opt) => ({
+      value: (opt.value || '').trim() || 'OPCION',
+      label: (opt.label || '').trim() || (opt.value || '').trim() || 'Opción',
+    }));
+  }
+
+  return [
+    { value: 'SI', label: 'Sí' },
+    { value: 'NO', label: 'No' },
+  ];
+}
+
+private edgeExists(sourceId: string, targetId: string): boolean {
+  const edges = this.graph?.getEdges?.() || [];
+
+  return edges.some((edge: any) => {
+    const source = edge.getSource?.();
+    const target = edge.getTarget?.();
+
+    const sourceCell = typeof source === 'string' ? source : source?.cell;
+    const targetCell = typeof target === 'string' ? target : target?.cell;
+
+    return sourceCell === sourceId && targetCell === targetId;
+  });
+}
+
+private createNodeFromAi(
+  op: Extract<AiWorkflowOperation, { type: 'createNode' }>,
+  index = 0,
+  mode: 'replace' | 'patch' = 'patch',
+): any {
+  const nodeType = (op.nodeType || 'task') as NodeType;
+  const shape = this.getShapeFromNodeType(nodeType);
+
+  const aiAlias = op.alias?.trim() || `nodo${index + 1}`;
+  const cleanLabel = op.label?.trim() || this.getDefaultLabelForType(nodeType);
+
+  let defaultX = 120;
+  let defaultY = 120;
+
+  if (mode === 'replace') {
+    defaultX = 100 + index * 240;
+    defaultY = 140;
+  } else {
+    const allNodes = this.graph?.getNodes?.() || [];
+    defaultX = 120 + allNodes.length * 80;
+    defaultY = 120 + (allNodes.length % 4) * 110;
+  }
+
+  const data: WorkflowNodeConfig = {
+    label: cleanLabel,
+    nodeType,
+    departmentId: '',
+    departmentName: op.departmentName || '',
+    instructions: op.instructions || '',
+    aiAlias,
+    decisionMode: undefined,
+    decisionQuestion: '',
+    decisionOptions: [],
+  };
+
+  if (nodeType === 'decision') {
+    data.decisionMode = 'MANUAL';
+    data.decisionQuestion = op.decisionQuestion?.trim() || 'Seleccione una opción';
+    data.decisionOptions = this.normalizeDecisionOptions(op.decisionOptions);
+  }
+
+  const node = this.graph.addNode({
+    id: `${aiAlias}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    shape,
+    x: op.x ?? defaultX,
+    y: op.y ?? defaultY,
+    label: cleanLabel,
+    data,
+  });
+
+  node.attr('label/text', cleanLabel);
+  return node;
+}
+
+private connectNodesFromAi(
+  op: Extract<AiWorkflowOperation, { type: 'connectNodes' }>,
+  createdNodeRefs: Map<string, any>,
+): void {
+  const sourceRef = (op.source || '').trim().toLowerCase();
+  const targetRef = (op.target || '').trim().toLowerCase();
+
+  const sourceNode =
+    createdNodeRefs.get(sourceRef) ||
+    this.findNodeByTarget(op.source);
+
+  const targetNode =
+    createdNodeRefs.get(targetRef) ||
+    this.findNodeByTarget(op.target);
+
+  if (!sourceNode || !targetNode) return;
+  if (this.edgeExists(sourceNode.id, targetNode.id)) return;
+
+  const edge: any = this.buildEdge(
+    `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    sourceNode.id,
+    targetNode.id,
+  );
+
+  if (op.conditionValue) {
+    edge.conditionValue = op.conditionValue;
+    edge.data = { conditionValue: op.conditionValue };
+    edge.labels = [
+      {
+        attrs: {
+          label: {
+            text: op.conditionLabel || op.conditionValue,
+          },
+        },
+      },
+    ];
+  }
+
+  this.graph.addEdge(edge);
+}
+
+applyAiOperations(
+  result: AiWorkflowResponse,
+  forcedMode?: 'replace' | 'patch',
+): void {
+  if (!this.graph || this.isPublished) return;
+
+  const effectiveMode = forcedMode || result.mode;
+
+  if (effectiveMode === 'replace') {
+    this.graph.clearCells();
+  }
+
+  const createdNodeRefs = new Map<string, any>();
+  const createdNodes: any[] = [];
+  let hasConnectOps = false;
+  let createIndex = 0;
+
+  for (const op of result.operations || []) {
+    switch (op.type) {
+      case 'createNode': {
+        const created = this.createNodeFromAi(op, createIndex, effectiveMode);
+        createIndex++;
+
+        if (created) {
+          createdNodes.push(created);
+
+          const alias = (op.alias || created.getData?.()?.aiAlias || '').trim().toLowerCase();
+          const label = (op.label || created.getData?.()?.label || '').trim().toLowerCase();
+
+          if (alias) createdNodeRefs.set(alias, created);
+          if (label) createdNodeRefs.set(label, created);
+        }
+        break;
+      }
+
+      case 'renameNode': {
+        const node = this.findNodeByTarget(op.target);
+        if (!node) break;
+
+        const currentData = node.getData?.() || {};
+        const newLabel =
+          op.newLabel?.trim() ||
+          this.getDefaultLabelForType((currentData.nodeType || 'task') as NodeType);
+
+        node.attr('label/text', newLabel);
+        node.setData({
+          ...currentData,
+          label: newLabel,
+        });
+        break;
+      }
+
+      case 'updateNode': {
+        const node = this.findNodeByTarget(op.target);
+        if (!node) break;
+
+        const currentData = node.getData?.() || {};
+        const nodeType = (currentData.nodeType || 'task') as NodeType;
+
+        const nextData: WorkflowNodeConfig = {
+          ...this.createEmptyNodeConfig(nodeType),
+          ...currentData,
+          label:
+            currentData.label ||
+            this.getNodeLabel(node) ||
+            this.getDefaultLabelForType(nodeType),
+          departmentName: op.departmentName ?? currentData.departmentName ?? '',
+          instructions: op.instructions ?? currentData.instructions ?? '',
+          aiAlias: currentData.aiAlias || '',
+        };
+
+        if (nodeType === 'decision') {
+          nextData.decisionMode = 'MANUAL';
+          nextData.decisionQuestion =
+            op.decisionQuestion ?? currentData.decisionQuestion ?? 'Seleccione una opción';
+          nextData.decisionOptions = this.normalizeDecisionOptions(
+            op.decisionOptions ?? currentData.decisionOptions,
+          );
+        }
+
+        node.attr('label/text', nextData.label);
+        node.setData(nextData);
+        break;
+      }
+
+      case 'deleteNode': {
+        const node = this.findNodeByTarget(op.target);
+        if (!node) break;
+
+        if (this.selectedNode?.id === node.id) {
+          this.clearSelection();
+        }
+
+        this.graph.removeCell(node);
+        break;
+      }
+
+      case 'connectNodes': {
+        hasConnectOps = true;
+        this.connectNodesFromAi(op, createdNodeRefs);
+        break;
+      }
+
+      case 'disconnectNodes': {
+        const sourceNode = this.findNodeByTarget(op.source);
+        const targetNode = this.findNodeByTarget(op.target);
+        if (!sourceNode || !targetNode) break;
+
+        const edges = this.graph.getEdges?.() || [];
+        for (const edge of edges) {
+          const source = edge.getSource?.();
+          const target = edge.getTarget?.();
+
+          const sourceCell = typeof source === 'string' ? source : source?.cell;
+          const targetCell = typeof target === 'string' ? target : target?.cell;
+
+          if (sourceCell === sourceNode.id && targetCell === targetNode.id) {
+            this.graph.removeCell(edge);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  if (effectiveMode === 'replace' && createdNodes.length > 1 && !hasConnectOps) {
+    for (let i = 0; i < createdNodes.length - 1; i++) {
+      const sourceId = createdNodes[i].id;
+      const targetId = createdNodes[i + 1].id;
+
+      if (!this.edgeExists(sourceId, targetId)) {
+        this.graph.addEdge(
+          this.buildEdge(
+            `edge-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+            sourceId,
+            targetId,
+          ),
+        );
+      }
+    }
+  }
+
+  this.clearSelection();
+  this.resizeGraph();
+  this.message = result.summary || 'Cambios aplicados con IA';
+  this.errorMessage = '';
+  // this.saveWorkflow();
+}
+
+submitAiPrompt(): void {
+  if (!this.aiPrompt.trim() || !this.graph || this.loading || this.isPublished) return;
+
+  const forcedMode = this.inferLocalIntentMode(this.aiPrompt);
+
+  this.safeUiUpdate(() => {
+    this.aiWorking = true;
+    this.message = '';
+    this.errorMessage = '';
+  });
+
+  this.workflowAiService
+    .runCommand(this.projectId, this.workflowId, {
+      prompt: this.aiPrompt.trim(),
+      forcedMode,
+      workflow: this.getWorkflowSnapshot(),
+      departments: this.departments.map((d) => ({
+        id: d.id,
+        name: d.name,
+      })),
+    })
+    .subscribe({
+      next: (result) => {
+        this.applyAiOperations(result, forcedMode);
+
+        this.safeUiUpdate(() => {
+          this.aiWorking = false;
+        });
+      },
+      error: (error) => {
+        console.error('Error ejecutando IA:', error);
+
+        const backendMessage =
+          typeof error?.error === 'string'
+            ? error.error
+            : error?.error?.message ||
+              error?.error?.details ||
+              error?.message ||
+              'No se pudo procesar el comando con IA';
+
+        this.safeUiUpdate(() => {
+          this.aiWorking = false;
+          this.errorMessage = backendMessage;
+        });
+      },
+    });
+}
 
   goBack(): void {
     this.router.navigate(['/projects', this.projectId, 'workflows']);

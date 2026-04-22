@@ -21,6 +21,7 @@ type WorkflowNodeConfig = {
   departmentId?: string;
   departmentName?: string;
   instructions?: string;
+  aiAlias?: string;
 
   decisionMode?: 'MANUAL';
   decisionQuestion?: string;
