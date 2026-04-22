@@ -17,14 +17,15 @@ import { WorkflowService } from '../../services/workflow.service';
 import { DepartmentService } from '../../../departments/services/department.service';
 import { Department } from '../../../departments/models/department.model';
 import { WorkflowStatus } from '../../models/workflow.model';
-import { WorkflowAiService } from '../../services/workflow-ai.service';
-import {
-  AiDecisionOption,
-  AiWorkflowOperation,
-  AiWorkflowResponse,
-} from '../../models/ai-workflow.model';
 import { Subject, debounceTime } from 'rxjs';
 import { WorkflowRealtimeService } from '../../services/workflow-realtime.service';
+
+import { WorkflowAiService } from '../../services/workflow-ai.service';
+import {
+  WorkflowAiGraphResponse,
+  WorkflowAiNode,
+  WorkflowAiEdge,
+} from '../../models/workflow-ai.model';
 
 type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
@@ -66,6 +67,8 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   aiPrompt = '';
   aiWorking = false;
+  aiError = '';
+  aiSummary = '';
 
   listening = false;
   speechSupported = false;
@@ -550,8 +553,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
           if (workflow?.nodes?.length || workflow?.edges?.length) {
             this.graph.fromJSON({
-              nodes: workflow.nodes as any,
-              edges: workflow.edges as any,
+              cells: [...(workflow.nodes || []), ...(workflow.edges || [])],
             });
           }
         },
@@ -880,6 +882,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       ...extraData,
     };
   }
+
   private buildEdge(id: string, sourceCell: string, targetCell: string) {
     return {
       id,
@@ -1385,439 +1388,137 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       });
   }
 
-  private inferLocalIntentMode(prompt: string): 'replace' | 'patch' {
-    const p = (prompt || '').trim().toLowerCase();
 
-    const replaceIntent =
-      p.includes('crea un workflow') ||
-      p.includes('crear un workflow') ||
-      p.includes('crea un flujo') ||
-      p.includes('crear un flujo') ||
-      p.includes('haz un workflow') ||
-      p.includes('hazme un workflow') ||
-      p.includes('genera un workflow') ||
-      p.includes('nuevo workflow') ||
-      p.includes('nuevo flujo') ||
-      p.includes('desde cero') ||
-      p.includes('comienza de cero') ||
-      p.includes('empieza de cero') ||
-      p.includes('reemplaza todo');
 
-    const patchIntent =
-      p.includes('agrega') ||
-      p.includes('añade') ||
-      p.includes('aumenta') ||
-      p.includes('inserta') ||
-      p.includes('conecta') ||
-      p.includes('renombra') ||
-      p.includes('cambia') ||
-      p.includes('edita') ||
-      p.includes('modifica') ||
-      p.includes('elimina') ||
-      p.includes('borra') ||
-      p.includes('quita');
-
-    if (replaceIntent && !patchIntent) return 'replace';
-    return 'patch';
-  }
-
-  private getWorkflowSnapshot(): { nodes: any[]; edges: any[] } {
-    const json = this.graph?.toJSON?.() || {};
-    const cells = (json.cells || []) as any[];
-
-    const nodes = cells
-      .filter((c) => !c.source)
-      .map((n: any) => ({
-        id: n.id,
-        label: n.label || n.data?.label || '',
-        nodeType: n.data?.nodeType || '',
-        aiAlias: n.data?.aiAlias || '',
-        departmentName: n.data?.departmentName || '',
-        decisionQuestion: n.data?.decisionQuestion || '',
-        decisionOptions: n.data?.decisionOptions || [],
-      }));
-
-    const edges = cells
-      .filter((c) => !!c.source && !!c.target)
-      .map((e: any) => ({
-        id: e.id,
-        source: e.source?.cell || '',
-        target: e.target?.cell || '',
-        conditionValue: e.data?.conditionValue || e.conditionValue || '',
-        label: e.labels?.[0]?.attrs?.label?.text || '',
-      }));
-
-    return { nodes, edges };
-  }
-
-  private getAllNodes(): any[] {
-    return this.graph?.getNodes?.() || [];
-  }
-
-  private getNextAiAlias(): string {
-    const nodes = this.getAllNodes();
-    let max = 0;
-
-    for (const node of nodes) {
-      const alias = node?.getData?.()?.aiAlias || '';
-      const match = /^nodo(\d+)$/i.exec(alias);
-      if (match) {
-        max = Math.max(max, Number(match[1]));
-      }
-    }
-
-    return `nodo${max + 1}`;
-  }
-
-  private getDefaultLabelForType(nodeType: NodeType): string {
-    switch (nodeType) {
-      case 'start':
-        return 'Inicio';
-      case 'task':
-        return 'Actividad';
-      case 'decision':
-        return 'Decisión';
-      case 'fork':
-        return 'Fork';
-      case 'join':
-        return 'Join';
-      case 'end':
-        return 'Fin';
-      default:
-        return 'Actividad';
-    }
-  }
-
-  private findNodeByTarget(target: string): any | null {
-    if (!this.graph || !target) return null;
-
-    const byId = this.graph.getCellById?.(target);
-    if (byId && !byId.isEdge?.()) return byId;
-
-    const normalized = target.trim().toLowerCase();
-
-    const node = this.getAllNodes().find((n: any) => {
-      const data = n.getData?.() || {};
-      const alias = (data.aiAlias || '').toLowerCase();
-      const label = (data.label || this.getNodeLabel(n) || '').toLowerCase();
-
-      return alias === normalized || label === normalized;
-    });
-
-    return node || null;
-  }
-
-  private normalizeDecisionOptions(options?: AiDecisionOption[]): DecisionOption[] {
-    if (options && options.length >= 2) {
-      return options.map((opt) => ({
-        value: (opt.value || '').trim() || 'OPCION',
-        label: (opt.label || '').trim() || (opt.value || '').trim() || 'Opción',
-      }));
-    }
-
-    return [
-      { value: 'SI', label: 'Sí' },
-      { value: 'NO', label: 'No' },
-    ];
-  }
-
-  private edgeExists(sourceId: string, targetId: string): boolean {
-    const edges = this.graph?.getEdges?.() || [];
-
-    return edges.some((edge: any) => {
-      const source = edge.getSource?.();
-      const target = edge.getTarget?.();
-
-      const sourceCell = typeof source === 'string' ? source : source?.cell;
-      const targetCell = typeof target === 'string' ? target : target?.cell;
-
-      return sourceCell === sourceId && targetCell === targetId;
-    });
-  }
-
-  private createNodeFromAi(
-    op: Extract<AiWorkflowOperation, { type: 'createNode' }>,
-    index = 0,
-    mode: 'replace' | 'patch' = 'patch',
-  ): any {
-    const nodeType = (op.nodeType || 'task') as NodeType;
-    const shape = this.getShapeFromNodeType(nodeType);
-
-    const aiAlias = op.alias?.trim() || `nodo${index + 1}`;
-    const cleanLabel = op.label?.trim() || this.getDefaultLabelForType(nodeType);
-
-    let defaultX = 120;
-    let defaultY = 120;
-
-    if (mode === 'replace') {
-      defaultX = 100 + index * 240;
-      defaultY = 140;
-    } else {
-      const allNodes = this.graph?.getNodes?.() || [];
-      defaultX = 120 + allNodes.length * 80;
-      defaultY = 120 + (allNodes.length % 4) * 110;
-    }
-
-    const data: WorkflowNodeConfig = {
-      label: cleanLabel,
-      nodeType,
-      departmentId: '',
-      departmentName: op.departmentName || '',
-      instructions: op.instructions || '',
-      aiAlias,
-      decisionMode: undefined,
-      decisionQuestion: '',
-      decisionOptions: [],
+  private aiNodeToCell(node: WorkflowAiNode): any {
+    return {
+      id: node.id,
+      shape: node.shape,
+      x: node.x,
+      y: node.y,
+      label: node.label || node.data?.label || 'Nodo',
+      data: {
+        ...node.data,
+        label: node.data?.label || node.label || 'Nodo',
+      },
     };
-
-    if (nodeType === 'decision') {
-      data.decisionMode = 'MANUAL';
-      data.decisionQuestion = op.decisionQuestion?.trim() || 'Seleccione una opción';
-      data.decisionOptions = this.normalizeDecisionOptions(op.decisionOptions);
-    }
-
-    const node = this.graph.addNode({
-      id: `${aiAlias}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      shape,
-      x: op.x ?? defaultX,
-      y: op.y ?? defaultY,
-      label: cleanLabel,
-      data,
-    });
-
-    node.attr('label/text', cleanLabel);
-    return node;
   }
 
-  private connectNodesFromAi(
-    op: Extract<AiWorkflowOperation, { type: 'connectNodes' }>,
-    createdNodeRefs: Map<string, any>,
-  ): void {
-    const sourceRef = (op.source || '').trim().toLowerCase();
-    const targetRef = (op.target || '').trim().toLowerCase();
+  private aiEdgeToCell(edge: WorkflowAiEdge): any {
+    const sourcePort =
+      edge?.source?.port && edge.source.port.startsWith('out') ? edge.source.port : 'out-1';
 
-    const sourceNode = createdNodeRefs.get(sourceRef) || this.findNodeByTarget(op.source);
+    const targetPort =
+      edge?.target?.port && edge.target.port.startsWith('in') ? edge.target.port : 'in-1';
 
-    const targetNode = createdNodeRefs.get(targetRef) || this.findNodeByTarget(op.target);
-
-    if (!sourceNode || !targetNode) return;
-    if (this.edgeExists(sourceNode.id, targetNode.id)) return;
-
-    const edge: any = this.buildEdge(
-      `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      sourceNode.id,
-      targetNode.id,
-    );
-
-    if (op.conditionValue) {
-      edge.conditionValue = op.conditionValue;
-      edge.data = { conditionValue: op.conditionValue };
-      edge.labels = [
-        {
-          attrs: {
-            label: {
-              text: op.conditionLabel || op.conditionValue,
-            },
+    return {
+      id: edge.id,
+      shape: 'edge',
+      source: {
+        cell: edge.source.cell,
+        port: sourcePort,
+      },
+      target: {
+        cell: edge.target.cell,
+        port: targetPort,
+      },
+      attrs: edge.attrs ?? {
+        line: {
+          stroke: '#64748b',
+          strokeWidth: 2,
+          targetMarker: {
+            name: 'classic',
+            size: 8,
           },
         },
-      ];
-    }
-
-    this.graph.addEdge(edge);
+      },
+    };
   }
-
-  applyAiOperations(result: AiWorkflowResponse, forcedMode?: 'replace' | 'patch'): void {
-    if (!this.graph || this.isPublished) return;
-
-    const effectiveMode = forcedMode || result.mode;
-
-    if (effectiveMode === 'replace') {
-      this.graph.clearCells();
-    }
-
-    const createdNodeRefs = new Map<string, any>();
-    const createdNodes: any[] = [];
-    let hasConnectOps = false;
-    let createIndex = 0;
-
-    for (const op of result.operations || []) {
-      switch (op.type) {
-        case 'createNode': {
-          const created = this.createNodeFromAi(op, createIndex, effectiveMode);
-          createIndex++;
-
-          if (created) {
-            createdNodes.push(created);
-
-            const alias = (op.alias || created.getData?.()?.aiAlias || '').trim().toLowerCase();
-            const label = (op.label || created.getData?.()?.label || '').trim().toLowerCase();
-
-            if (alias) createdNodeRefs.set(alias, created);
-            if (label) createdNodeRefs.set(label, created);
-          }
-          break;
-        }
-
-        case 'renameNode': {
-          const node = this.findNodeByTarget(op.target);
-          if (!node) break;
-
-          const currentData = node.getData?.() || {};
-          const newLabel =
-            op.newLabel?.trim() ||
-            this.getDefaultLabelForType((currentData.nodeType || 'task') as NodeType);
-
-          node.attr('label/text', newLabel);
-          node.setData({
-            ...currentData,
-            label: newLabel,
-          });
-          break;
-        }
-
-        case 'updateNode': {
-          const node = this.findNodeByTarget(op.target);
-          if (!node) break;
-
-          const currentData = node.getData?.() || {};
-          const nodeType = (currentData.nodeType || 'task') as NodeType;
-
-          const nextData: WorkflowNodeConfig = {
-            ...this.createEmptyNodeConfig(nodeType),
-            ...currentData,
-            label:
-              currentData.label || this.getNodeLabel(node) || this.getDefaultLabelForType(nodeType),
-            departmentName: op.departmentName ?? currentData.departmentName ?? '',
-            instructions: op.instructions ?? currentData.instructions ?? '',
-            aiAlias: currentData.aiAlias || '',
-          };
-
-          if (nodeType === 'decision') {
-            nextData.decisionMode = 'MANUAL';
-            nextData.decisionQuestion =
-              op.decisionQuestion ?? currentData.decisionQuestion ?? 'Seleccione una opción';
-            nextData.decisionOptions = this.normalizeDecisionOptions(
-              op.decisionOptions ?? currentData.decisionOptions,
-            );
-          }
-
-          node.attr('label/text', nextData.label);
-          node.setData(nextData);
-          break;
-        }
-
-        case 'deleteNode': {
-          const node = this.findNodeByTarget(op.target);
-          if (!node) break;
-
-          if (this.selectedNode?.id === node.id) {
-            this.clearSelection();
-          }
-
-          this.graph.removeCell(node);
-          break;
-        }
-
-        case 'connectNodes': {
-          hasConnectOps = true;
-          this.connectNodesFromAi(op, createdNodeRefs);
-          break;
-        }
-
-        case 'disconnectNodes': {
-          const sourceNode = this.findNodeByTarget(op.source);
-          const targetNode = this.findNodeByTarget(op.target);
-          if (!sourceNode || !targetNode) break;
-
-          const edges = this.graph.getEdges?.() || [];
-          for (const edge of edges) {
-            const source = edge.getSource?.();
-            const target = edge.getTarget?.();
-
-            const sourceCell = typeof source === 'string' ? source : source?.cell;
-            const targetCell = typeof target === 'string' ? target : target?.cell;
-
-            if (sourceCell === sourceNode.id && targetCell === targetNode.id) {
-              this.graph.removeCell(edge);
-            }
-          }
-          break;
-        }
-      }
-    }
-
-    if (effectiveMode === 'replace' && createdNodes.length > 1 && !hasConnectOps) {
-      for (let i = 0; i < createdNodes.length - 1; i++) {
-        const sourceId = createdNodes[i].id;
-        const targetId = createdNodes[i + 1].id;
-
-        if (!this.edgeExists(sourceId, targetId)) {
-          this.graph.addEdge(
-            this.buildEdge(
-              `edge-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
-              sourceId,
-              targetId,
-            ),
-          );
-        }
-      }
-    }
-
-    this.clearSelection();
-    this.resizeGraph();
-    this.message = result.summary || 'Cambios aplicados con IA';
-    this.errorMessage = '';
-    // this.saveWorkflow();
-  }
-
   submitAiPrompt(): void {
-    if (!this.aiPrompt.trim() || !this.graph || this.loading || this.isPublished) return;
+    if (!this.aiPrompt.trim() || this.aiWorking || this.loading || this.isPublished) return;
+    if (!this.projectId || !this.workflowId) return;
 
-    const forcedMode = this.inferLocalIntentMode(this.aiPrompt);
+    this.aiWorking = true;
+    this.aiError = '';
+    this.aiSummary = '';
+    this.message = '';
+    this.errorMessage = '';
 
-    this.safeUiUpdate(() => {
-      this.aiWorking = true;
-      this.message = '';
-      this.errorMessage = '';
-    });
+    const payload = {
+      prompt: this.aiPrompt.trim(),
+      forcedMode: null,
+      workflow: this.exportCurrentWorkflowForAi(),
+      departments: this.departments ?? [],
+    };
 
     this.workflowAiService
-      .runCommand(this.projectId, this.workflowId, {
-        prompt: this.aiPrompt.trim(),
-        forcedMode,
-        workflow: this.getWorkflowSnapshot(),
-        departments: this.departments.map((d) => ({
-          id: d.id,
-          name: d.name,
-        })),
-      })
+      .aiCommand(this.projectId, this.workflowId, payload)
+      .pipe(
+        finalize(() => {
+          this.aiWorking = false;
+          this.cdr.detectChanges();
+        }),
+      )
       .subscribe({
-        next: (result) => {
-          this.applyAiOperations(result, forcedMode);
-
-          this.safeUiUpdate(() => {
-            this.aiWorking = false;
-          });
+        next: (response) => {
+          this.applyAiGraphResponse(response);
+          this.aiSummary = response.summary || 'Cambios aplicados con IA';
+          this.message = this.aiSummary;
+          this.errorMessage = '';
         },
         error: (error) => {
-          console.error('Error ejecutando IA:', error);
+          console.error('Error IA:', error);
+          this.aiError =
+            error?.error?.error ||
+            error?.error?.message ||
+            error?.message ||
+            'No se pudo procesar el comando con IA';
 
-          const backendMessage =
-            typeof error?.error === 'string'
-              ? error.error
-              : error?.error?.message ||
-                error?.error?.details ||
-                error?.message ||
-                'No se pudo procesar el comando con IA';
-
-          this.safeUiUpdate(() => {
-            this.aiWorking = false;
-            this.errorMessage = backendMessage;
-          });
+          this.errorMessage = this.aiError;
+          this.message = '';
         },
       });
   }
 
+  private exportCurrentWorkflowForAi(): { nodes: any[]; edges: any[] } {
+    const json = this.graph?.toJSON?.() || {};
+    const cells = (json.cells || []) as any[];
+
+    return {
+      nodes: cells.filter((c) => !c.source),
+      edges: cells.filter((c) => !!c.source && !!c.target),
+    };
+  }
+
+  private applyAiGraphResponse(response: WorkflowAiGraphResponse): void {
+    if (!this.graph) return;
+
+    const nodes = (response.nodes || []).map((node) => this.aiNodeToCell(node));
+    const edges = (response.edges || []).map((edge) => this.aiEdgeToCell(edge));
+    const cells = [...nodes, ...edges];
+
+    if (response.mode === 'replace') {
+      this.graph.clearCells();
+      this.graph.fromJSON({ cells });
+    } else {
+      this.applyPatchCells(cells);
+    }
+
+    this.clearSelection();
+    this.resizeGraph();
+  }
+
+  private applyPatchCells(cells: any[]): void {
+    if (!this.graph) return;
+
+    for (const cell of cells) {
+      const existing = this.graph.getCellById?.(cell.id);
+      if (existing) {
+        existing.remove();
+      }
+      this.graph.addCell(cell);
+    }
+  }
   goBack(): void {
     this.router.navigate(['/projects', this.projectId, 'workflows']);
   }
