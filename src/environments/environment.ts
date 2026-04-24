@@ -5,5 +5,5 @@
 
 export const environment = {
   production: false,
-  apiUrl: 'http://3.145.0.100:8080/api'
+  apiUrl: 'https://aws-docker-production.up.railway.app/api'
 };
