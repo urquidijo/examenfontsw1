@@ -26,6 +26,7 @@ import {
   WorkflowAiNode,
   WorkflowAiEdge,
 } from '../../models/workflow-ai.model';
+import { environment } from '../../../../../environments/environment';
 
 type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
@@ -166,7 +167,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   private setupRealtime(): void {
-    const wsBaseUrl = 'ws://localhost:8080/ws';
+    const wsBaseUrl = environment.wsUrl;
 
     this.workflowRealtimeService.connect(
       wsBaseUrl,
@@ -1387,8 +1388,6 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
         },
       });
   }
-
-
 
   private aiNodeToCell(node: WorkflowAiNode): any {
     return {
