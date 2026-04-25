@@ -282,7 +282,7 @@
             class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
           >
             Mostrando
-            <span class="font-semibold text-slate-800">{{ filteredTickets.length }}</span> de
+            <span class="font-semibold text-slate-800">{{ filteredTicketsCache.length }}</span> de
             <span class="font-semibold text-slate-800">{{ tickets.length }}</span>
           </div>
         </div>
@@ -357,15 +357,15 @@
         </div>
 
         <div
-          *ngIf="tickets.length > 0 && filteredTickets.length === 0"
+          *ngIf="tickets.length > 0 && filteredTicketsCache.length === 0"
           class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500"
         >
           No se encontraron tickets con los filtros actuales.
         </div>
 
-        <div class="space-y-3" *ngIf="filteredTickets.length > 0">
+        <div class="space-y-3" *ngIf="filteredTicketsCache.length > 0">
           <article
-            *ngFor="let ticket of filteredTickets; trackBy: trackByTicketId"
+            *ngFor="let ticket of filteredTicketsCache; trackBy: trackByTicketId"
             class="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
           >
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">

@@ -1,11 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError, finalize, take, timeout } from 'rxjs/operators';
+
 import { ProjectService } from '../../../projects/services/project.service';
 import { WorkflowService } from '../../../workflow/services/workflow.service';
 import { TicketService } from '../../services/ticket.service';
+
 import { Project } from '../../../projects/models/project.model';
 import { WorkflowSummary } from '../../../workflow/models/workflow.model';
 import { Ticket } from '../../models/ticket.model';
@@ -20,7 +23,6 @@ export class ProjectTicketsComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private fb = inject(FormBuilder);
-  private cdr = inject(ChangeDetectorRef);
   private projectService = inject(ProjectService);
   private workflowService = inject(WorkflowService);
   private ticketService = inject(TicketService);
@@ -29,7 +31,11 @@ export class ProjectTicketsComponent implements OnInit {
   project: Project | null = null;
 
   tickets: Ticket[] = [];
+  filteredTicketsCache: Ticket[] = [];
+
   publishedWorkflows: WorkflowSummary[] = [];
+  workflowFilterOptions: Array<{ id: string; name: string }> = [];
+  departmentFilterOptions: Array<{ id: string; name: string }> = [];
 
   loading = true;
   saving = false;
@@ -72,23 +78,61 @@ export class ProjectTicketsComponent implements OnInit {
     this.successMessage = '';
 
     forkJoin({
-      project: this.projectService.getProjectById(this.projectId),
-      workflows: this.workflowService.getWorkflows(this.projectId),
-      tickets: this.ticketService.getTickets(this.projectId),
-    }).subscribe({
-      next: ({ project, workflows, tickets }) => {
-        this.project = project;
-        this.publishedWorkflows = (workflows ?? []).filter((item) => item.status === 'PUBLISHED');
-        this.tickets = tickets ?? [];
-        this.loading = false;
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        this.loading = false;
-        this.errorMessage = error?.error?.message || 'No se pudo cargar la gestión de tickets';
-        this.cdr.detectChanges();
-      },
-    });
+      project: this.projectService.getProjectById(this.projectId).pipe(
+        take(1),
+        timeout(15000),
+        catchError((error) => {
+          console.error('Error cargando proyecto:', error);
+          return of(null);
+        })
+      ),
+      workflows: this.workflowService.getWorkflows(this.projectId).pipe(
+        take(1),
+        timeout(15000),
+        catchError((error) => {
+          console.error('Error cargando workflows:', error);
+          return of([]);
+        })
+      ),
+      tickets: this.ticketService.getTickets(this.projectId).pipe(
+        take(1),
+        timeout(15000),
+        catchError((error) => {
+          console.error('Error cargando tickets:', error);
+          return of([]);
+        })
+      ),
+    })
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+        })
+      )
+      .subscribe({
+        next: ({ project, workflows, tickets }) => {
+          if (!project) {
+            this.errorMessage = 'No se pudo cargar el proyecto. Revisa consola o backend.';
+            this.project = null;
+            this.tickets = [];
+            this.filteredTicketsCache = [];
+            return;
+          }
+
+          this.project = project;
+          this.publishedWorkflows = (workflows ?? []).filter(
+            (item: WorkflowSummary) => item.status === 'PUBLISHED'
+          );
+
+          this.tickets = tickets ?? [];
+          this.rebuildFilterOptions();
+          this.applyFilters();
+        },
+        error: (error) => {
+          console.error('Error general cargando pantalla:', error);
+          this.errorMessage = 'No se pudo cargar la gestión de tickets';
+          this.loading = false;
+        },
+      });
   }
 
   goBack(): void {
@@ -124,19 +168,25 @@ export class ProjectTicketsComponent implements OnInit {
 
     this.ticketService
       .createTicket(this.projectId, this.ticketForm.getRawValue(), this.selectedFiles)
+      .pipe(
+        take(1),
+        timeout(15000),
+        finalize(() => {
+          this.saving = false;
+        })
+      )
       .subscribe({
         next: (ticket) => {
           this.tickets = [ticket, ...this.tickets];
-          this.saving = false;
+          this.rebuildFilterOptions();
+          this.applyFilters();
           this.successMessage = 'Ticket creado correctamente';
           this.showForm = false;
           this.resetForm();
-          this.cdr.detectChanges();
         },
         error: (error) => {
-          this.saving = false;
+          console.error('Error creando ticket:', error);
           this.errorMessage = error?.error?.message || 'No se pudo crear el ticket';
-          this.cdr.detectChanges();
         },
       });
   }
@@ -151,6 +201,7 @@ export class ProjectTicketsComponent implements OnInit {
       clientEmail: '',
       clientReference: '',
     });
+
     this.selectedFiles = [];
   }
 
@@ -163,36 +214,42 @@ export class ProjectTicketsComponent implements OnInit {
     this.selectedStatus = '';
     this.selectedWorkflowId = '';
     this.selectedDepartmentId = '';
+    this.applyFilters();
   }
 
-  get workflowFilterOptions(): Array<{ id: string; name: string }> {
-    const map = new Map<string, string>();
+  onFiltersChange(): void {
+    this.applyFilters();
+  }
+
+  private rebuildFilterOptions(): void {
+    const workflowMap = new Map<string, string>();
+    const departmentMap = new Map<string, string>();
 
     for (const ticket of this.tickets) {
       if (ticket.workflowId && ticket.workflowName) {
-        map.set(ticket.workflowId, ticket.workflowName);
+        workflowMap.set(ticket.workflowId, ticket.workflowName);
       }
-    }
 
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }
-
-  get departmentFilterOptions(): Array<{ id: string; name: string }> {
-    const map = new Map<string, string>();
-
-    for (const ticket of this.tickets) {
       if (ticket.currentDepartmentId && ticket.currentDepartmentName) {
-        map.set(ticket.currentDepartmentId, ticket.currentDepartmentName);
+        departmentMap.set(ticket.currentDepartmentId, ticket.currentDepartmentName);
       }
     }
 
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+    this.workflowFilterOptions = Array.from(workflowMap.entries()).map(([id, name]) => ({
+      id,
+      name,
+    }));
+
+    this.departmentFilterOptions = Array.from(departmentMap.entries()).map(([id, name]) => ({
+      id,
+      name,
+    }));
   }
 
-  get filteredTickets(): Ticket[] {
+  applyFilters(): void {
     const query = this.searchTerm.trim().toLowerCase();
 
-    return this.tickets.filter((ticket) => {
+    this.filteredTicketsCache = this.tickets.filter((ticket) => {
       const matchesSearch =
         !query ||
         ticket.title?.toLowerCase().includes(query) ||
@@ -204,8 +261,7 @@ export class ProjectTicketsComponent implements OnInit {
         ticket.currentDepartmentName?.toLowerCase().includes(query);
 
       const matchesStatus = !this.selectedStatus || ticket.status === this.selectedStatus;
-      const matchesWorkflow =
-        !this.selectedWorkflowId || ticket.workflowId === this.selectedWorkflowId;
+      const matchesWorkflow = !this.selectedWorkflowId || ticket.workflowId === this.selectedWorkflowId;
       const matchesDepartment =
         !this.selectedDepartmentId || ticket.currentDepartmentId === this.selectedDepartmentId;
 
