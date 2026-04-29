@@ -18,6 +18,7 @@ import { DepartmentTasksComponent } from './features/tasks/pages/department-task
 import { TaskDetailComponent } from './features/tasks/pages/task-detail/task-detail.component';
 import { DepartmentCompletedTasksComponent } from './features/tasks/pages/department-completed-tasks/department-completed-tasks.component';
 import { TicketMonitorComponent } from './features/ticket/pages/ticket-monitor/ticket-monitor.component';
+import { ProjectKpisComponent } from './features/projects/pages/project-kpis/project-kpis.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'login', pathMatch: 'full' },
@@ -62,6 +63,8 @@ export const routes: Routes = [
 
   { path: 'projects/:id/tickets', component: ProjectTicketsComponent, canActivate: [authGuard] },
 
+  { path: 'projects/:id/kpis', component: ProjectKpisComponent, canActivate: [authGuard] },
+  
   { path: 'projects/:id/tasks', component: ProjectTaskDepartmentsComponent, canActivate: [authGuard] },
 
   { path: 'projects/:id/tasks/departments/:departmentId', component: DepartmentTasksComponent, canActivate: [authGuard] },

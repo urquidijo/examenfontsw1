@@ -19,14 +19,8 @@ import { Department } from '../../../departments/models/department.model';
 import { WorkflowStatus } from '../../models/workflow.model';
 import { Subject, debounceTime } from 'rxjs';
 import { WorkflowRealtimeService } from '../../services/workflow-realtime.service';
-
-import { WorkflowAiService } from '../../services/workflow-ai.service';
-import {
-  WorkflowAiGraphResponse,
-  WorkflowAiNode,
-  WorkflowAiEdge,
-} from '../../models/workflow-ai.model';
 import { environment } from '../../../../../environments/environment';
+import { WorkflowDesignerAiFacade } from './workflow-designer-ai.facade';
 
 type NodeType = 'start' | 'task' | 'decision' | 'fork' | 'join' | 'end';
 
@@ -64,7 +58,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
   private departmentService = inject(DepartmentService);
   private platformId = inject(PLATFORM_ID);
   private cdr = inject(ChangeDetectorRef);
-  private workflowAiService = inject(WorkflowAiService);
+  private workflowDesignerAi = inject(WorkflowDesignerAiFacade);
 
   aiPrompt = '';
   aiWorking = false;
@@ -1389,50 +1383,6 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       });
   }
 
-  private aiNodeToCell(node: WorkflowAiNode): any {
-    return {
-      id: node.id,
-      shape: node.shape,
-      x: node.x,
-      y: node.y,
-      label: node.label || node.data?.label || 'Nodo',
-      data: {
-        ...node.data,
-        label: node.data?.label || node.label || 'Nodo',
-      },
-    };
-  }
-
-  private aiEdgeToCell(edge: WorkflowAiEdge): any {
-    const sourcePort =
-      edge?.source?.port && edge.source.port.startsWith('out') ? edge.source.port : 'out-1';
-
-    const targetPort =
-      edge?.target?.port && edge.target.port.startsWith('in') ? edge.target.port : 'in-1';
-
-    return {
-      id: edge.id,
-      shape: 'edge',
-      source: {
-        cell: edge.source.cell,
-        port: sourcePort,
-      },
-      target: {
-        cell: edge.target.cell,
-        port: targetPort,
-      },
-      attrs: edge.attrs ?? {
-        line: {
-          stroke: '#64748b',
-          strokeWidth: 2,
-          targetMarker: {
-            name: 'classic',
-            size: 8,
-          },
-        },
-      },
-    };
-  }
   submitAiPrompt(): void {
     if (!this.aiPrompt.trim() || this.aiWorking || this.loading || this.isPublished) return;
     if (!this.projectId || !this.workflowId) return;
@@ -1443,15 +1393,14 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     this.message = '';
     this.errorMessage = '';
 
-    const payload = {
-      prompt: this.aiPrompt.trim(),
-      forcedMode: null,
-      workflow: this.exportCurrentWorkflowForAi(),
-      departments: this.departments ?? [],
-    };
-
-    this.workflowAiService
-      .aiCommand(this.projectId, this.workflowId, payload)
+    this.workflowDesignerAi
+      .sendCommand({
+        projectId: this.projectId,
+        workflowId: this.workflowId,
+        prompt: this.aiPrompt,
+        graph: this.graph,
+        departments: this.departments ?? [],
+      })
       .pipe(
         finalize(() => {
           this.aiWorking = false;
@@ -1460,13 +1409,19 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       )
       .subscribe({
         next: (response) => {
-          this.applyAiGraphResponse(response);
+          this.workflowDesignerAi.applyAiGraphResponse(this.graph, response);
+
+          this.clearSelection();
+          this.resizeGraph();
+
           this.aiSummary = response.summary || 'Cambios aplicados con IA';
           this.message = this.aiSummary;
           this.errorMessage = '';
+          this.cdr.detectChanges();
         },
         error: (error) => {
           console.error('Error IA:', error);
+
           this.aiError =
             error?.error?.error ||
             error?.error?.message ||
@@ -1475,49 +1430,11 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
           this.errorMessage = this.aiError;
           this.message = '';
+          this.cdr.detectChanges();
         },
       });
   }
 
-  private exportCurrentWorkflowForAi(): { nodes: any[]; edges: any[] } {
-    const json = this.graph?.toJSON?.() || {};
-    const cells = (json.cells || []) as any[];
-
-    return {
-      nodes: cells.filter((c) => !c.source),
-      edges: cells.filter((c) => !!c.source && !!c.target),
-    };
-  }
-
-  private applyAiGraphResponse(response: WorkflowAiGraphResponse): void {
-    if (!this.graph) return;
-
-    const nodes = (response.nodes || []).map((node) => this.aiNodeToCell(node));
-    const edges = (response.edges || []).map((edge) => this.aiEdgeToCell(edge));
-    const cells = [...nodes, ...edges];
-
-    if (response.mode === 'replace') {
-      this.graph.clearCells();
-      this.graph.fromJSON({ cells });
-    } else {
-      this.applyPatchCells(cells);
-    }
-
-    this.clearSelection();
-    this.resizeGraph();
-  }
-
-  private applyPatchCells(cells: any[]): void {
-    if (!this.graph) return;
-
-    for (const cell of cells) {
-      const existing = this.graph.getCellById?.(cell.id);
-      if (existing) {
-        existing.remove();
-      }
-      this.graph.addCell(cell);
-    }
-  }
   goBack(): void {
     this.router.navigate(['/projects', this.projectId, 'workflows']);
   }
