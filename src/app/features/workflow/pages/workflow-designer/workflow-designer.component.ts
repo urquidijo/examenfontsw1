@@ -89,6 +89,21 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   workflowStatus: WorkflowStatus = 'DRAFT';
 
+  swimlaneMode = false;
+
+  private readonly laneWidth = 360;
+  private readonly laneHeaderHeight = 52;
+  private readonly laneTop = 40;
+  private readonly laneLeft = 60;
+  private readonly laneGap = 18;
+  private readonly rowHeight = 130;
+  private readonly firstNodeY = 140;
+  private readonly activityNodeWidth = 240;
+  private readonly activityNodeHeight = 72;
+
+  private readonly generalLaneId = '__GENERAL__';
+  private readonly showOnlyUsedDepartmentLanes = true;
+
   selectedNode: any = null;
   departments: Department[] = [];
 
@@ -109,6 +124,362 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     }, 0);
   }
 
+  toggleSwimlanes(): void {
+    if (!this.graph) return;
+
+    this.swimlaneMode = !this.swimlaneMode;
+
+    if (this.swimlaneMode) {
+      this.organizeBySwimlanes();
+    } else {
+      this.clearSwimlanes();
+      this.message = 'Vista de calles desactivada';
+      this.cdr.detectChanges();
+    }
+  }
+
+  organizeBySwimlanes(): void {
+    if (!this.graph) return;
+
+    const workflowNodes = this.getWorkflowNodes();
+
+    if (!workflowNodes.length) {
+      this.errorMessage = 'No hay nodos para organizar';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.swimlaneMode = true;
+    this.clearSwimlanes();
+
+    const orderedNodes = this.getOrderedWorkflowNodes(workflowNodes);
+    const lanes = this.buildSwimlaneDefinitions(orderedNodes);
+
+    if (!lanes.length) {
+      this.errorMessage = 'No hay departamentos o nodos asignados para generar calles';
+      this.cdr.detectChanges();
+      return;
+    }
+
+    const rowByNodeId = new Map<string, number>();
+
+    orderedNodes.forEach((node, index) => {
+      rowByNodeId.set(node.id, index);
+    });
+
+    const laneHeight = this.firstNodeY + orderedNodes.length * this.rowHeight + 120;
+    const totalWidth =
+      this.laneLeft +
+      lanes.length * this.laneWidth +
+      Math.max(0, lanes.length - 1) * this.laneGap +
+      this.laneLeft;
+
+    this.graph.freeze?.();
+
+    lanes.forEach((lane, index) => {
+      const x = this.laneLeft + index * (this.laneWidth + this.laneGap);
+
+      this.addSwimlaneBackground(lane.id, lane.name, x, this.laneTop, this.laneWidth, laneHeight);
+    });
+
+    orderedNodes.forEach((node) => {
+      const laneId = this.getLaneIdForNode(node);
+      const laneIndex = lanes.findIndex((lane) => lane.id === laneId);
+
+      if (laneIndex < 0) return;
+
+      const rowIndex = rowByNodeId.get(node.id) ?? 0;
+      const laneX = this.laneLeft + laneIndex * (this.laneWidth + this.laneGap);
+
+      this.normalizeNodeForSwimlane(node);
+
+      const size = node.getSize?.() || {
+        width: this.activityNodeWidth,
+        height: this.activityNodeHeight,
+      };
+
+      const nodeX = laneX + this.laneWidth / 2 - size.width / 2;
+      const nodeY = this.firstNodeY + rowIndex * this.rowHeight;
+
+      node.position?.(nodeX, nodeY);
+      node.setZIndex?.(20);
+      node.toFront?.();
+    });
+
+    this.layoutEdgesForSwimlanes();
+
+    this.resizeGraphToContainer();
+
+    this.graph.unfreeze?.();
+
+    this.fitSwimlanesToScreen();
+
+    this.message = 'Diagrama organizado por calles de departamento';
+    this.errorMessage = '';
+
+    this.notifyGraphChanged();
+    this.cdr.detectChanges();
+  }
+  private resizeGraphToContainer(): void {
+    if (!this.graph || !this.containerRef?.nativeElement) return;
+
+    const container = this.containerRef.nativeElement;
+
+    this.graph.resize?.(container.clientWidth || 1000, container.clientHeight || 680);
+  }
+
+  private buildSwimlaneDefinitions(nodes: any[]): Array<{ id: string; name: string }> {
+    const usedLaneIds = new Set<string>();
+
+    nodes.forEach((node) => {
+      usedLaneIds.add(this.getLaneIdForNode(node));
+    });
+
+    const departmentLanes = this.departments
+      .filter((department) => {
+        if (!department?.id) return false;
+
+        if (this.showOnlyUsedDepartmentLanes) {
+          return usedLaneIds.has(department.id);
+        }
+
+        return true;
+      })
+      .map((department) => ({
+        id: department.id,
+        name: department.name || 'Departamento sin nombre',
+      }));
+
+    const hasGeneralLane = usedLaneIds.has(this.generalLaneId);
+
+    const lanes: Array<{ id: string; name: string }> = [];
+
+    if (hasGeneralLane) {
+      lanes.push({
+        id: this.generalLaneId,
+        name: 'General',
+      });
+    }
+
+    lanes.push(...departmentLanes);
+
+    return lanes;
+  }
+
+  private getWorkflowNodes(): any[] {
+    const nodes = this.graph.getNodes?.() || [];
+
+    return nodes.filter((node: any) => {
+      const data = node.getData?.() || {};
+      return !data.isSwimlane;
+    });
+  }
+
+  private getOrderedWorkflowNodes(nodes: any[]): any[] {
+    return [...nodes].sort((a, b) => {
+      const posA = a.getPosition?.() || { x: 0, y: 0 };
+      const posB = b.getPosition?.() || { x: 0, y: 0 };
+
+      if (posA.y !== posB.y) {
+        return posA.y - posB.y;
+      }
+
+      return posA.x - posB.x;
+    });
+  }
+
+  private getLaneIdForNode(node: any): string {
+    const data = node.getData?.() || {};
+    const nodeType = this.getNodeTypeForSwimlane(node);
+
+    const generalTypes = ['start', 'end', 'fork', 'join', 'merge'];
+
+    if (generalTypes.includes(nodeType)) {
+      return this.generalLaneId;
+    }
+
+    if (!data.departmentId) {
+      return this.generalLaneId;
+    }
+
+    return data.departmentId;
+  }
+
+  private getNodeTypeForSwimlane(node: any): string {
+    const data = node.getData?.() || {};
+    const shape = node.shape || '';
+
+    return String(data.nodeType || data.type || shape || '').toLowerCase();
+  }
+
+  private normalizeNodeForSwimlane(node: any): void {
+    const nodeType = this.getNodeTypeForSwimlane(node);
+
+    if (nodeType.includes('decision') || nodeType.includes('diamond')) {
+      return;
+    }
+
+    if (nodeType === 'start' || nodeType === 'end') {
+      return;
+    }
+
+    node.resize?.(this.activityNodeWidth, this.activityNodeHeight);
+
+    node.attr?.('label/fontSize', 14);
+    node.attr?.('label/fontWeight', 700);
+    node.attr?.('label/textWrap', {
+      width: this.activityNodeWidth - 24,
+      height: this.activityNodeHeight - 18,
+      ellipsis: true,
+    });
+  }
+
+  private addSwimlaneBackground(
+    laneId: string,
+    laneName: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void {
+    const safeLaneId = this.toSafeCellId(laneId);
+
+    const laneBody = this.graph.addNode({
+      id: `swimlane-body-${safeLaneId}`,
+      shape: 'rect',
+      x,
+      y,
+      width,
+      height,
+      zIndex: 0,
+      data: {
+        isSwimlane: true,
+        laneId,
+      },
+      attrs: {
+        body: {
+          fill: '#ffffff',
+          stroke: '#cbd5e1',
+          strokeWidth: 1.5,
+          pointerEvents: 'none',
+        },
+        label: {
+          text: '',
+        },
+      },
+    });
+
+    const laneHeader = this.graph.addNode({
+      id: `swimlane-header-${safeLaneId}`,
+      shape: 'rect',
+      x,
+      y,
+      width,
+      height: this.laneHeaderHeight,
+      zIndex: 5,
+      data: {
+        isSwimlane: true,
+        laneId,
+      },
+      attrs: {
+        body: {
+          fill: laneId === this.generalLaneId ? '#e2e8f0' : '#e0f2fe',
+          stroke: '#94a3b8',
+          strokeWidth: 1.5,
+          pointerEvents: 'none',
+        },
+        label: {
+          text: laneName,
+          fill: '#0f172a',
+          fontSize: 14,
+          fontWeight: 800,
+          textWrap: {
+            width: width - 24,
+            height: this.laneHeaderHeight - 12,
+            ellipsis: true,
+          },
+        },
+      },
+    });
+
+    laneBody.setZIndex?.(0);
+    laneHeader.setZIndex?.(5);
+  }
+
+  private layoutEdgesForSwimlanes(): void {
+    const edges = this.graph.getEdges?.() || [];
+
+    edges.forEach((edge: any) => {
+      edge.setZIndex?.(15);
+
+      edge.attr?.('line/stroke', '#334155');
+      edge.attr?.('line/strokeWidth', 2);
+      edge.attr?.('line/targetMarker', {
+        name: 'classic',
+        size: 8,
+      });
+
+      try {
+        edge.setRouter?.({
+          name: 'manhattan',
+          args: {
+            padding: 24,
+          },
+        });
+      } catch {
+        try {
+          edge.setRouter?.('manhattan');
+        } catch {}
+      }
+
+      try {
+        edge.setConnector?.({
+          name: 'rounded',
+          args: {
+            radius: 8,
+          },
+        });
+      } catch {
+        try {
+          edge.setConnector?.('rounded');
+        } catch {}
+      }
+    });
+  }
+
+  private fitSwimlanesToScreen(): void {
+    setTimeout(() => {
+      try {
+        this.graph.zoomToFit?.({
+          padding: 40,
+          maxScale: 0.9,
+          minScale: 0.25,
+        });
+      } catch {
+        this.graph.centerContent?.();
+      }
+    }, 50);
+  }
+
+  private clearSwimlanes(): void {
+    if (!this.graph) return;
+
+    const nodes = this.graph.getNodes?.() || [];
+
+    const swimlanes = nodes.filter((node: any) => {
+      const data = node.getData?.() || {};
+      return data.isSwimlane;
+    });
+
+    if (swimlanes.length) {
+      this.graph.removeCells?.(swimlanes);
+    }
+  }
+
+  private toSafeCellId(value: string): string {
+    return String(value || 'lane').replace(/[^a-zA-Z0-9_-]/g, '-');
+  }
+
   private workflowRealtimeService = inject(WorkflowRealtimeService);
 
   private graphChanges$ = new Subject<void>();
@@ -127,7 +498,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     const cells = (json.cells || []) as any[];
 
     return {
-      nodes: cells.filter((c) => !c.source),
+      nodes: cells.filter((c) => !c.source && !c.data?.isSwimlane),
       edges: cells.filter((c) => !!c.source && !!c.target),
     };
   }
@@ -551,6 +922,9 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
               cells: [...(workflow.nodes || []), ...(workflow.edges || [])],
             });
           }
+          if (this.swimlaneMode) {
+            setTimeout(() => this.organizeBySwimlanes(), 0);
+          }
         },
         error: (error) => {
           console.error('Error cargando workflow:', error);
@@ -850,11 +1224,13 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
 
   private resizeGraph(): void {
     setTimeout(() => {
-      this.graph?.resize?.(
-        this.containerRef?.nativeElement?.clientWidth || 1000,
-        this.containerRef?.nativeElement?.clientHeight || 680,
-      );
-      this.graph?.centerContent?.();
+      this.resizeGraphToContainer();
+
+      if (this.swimlaneMode) {
+        this.fitSwimlanesToScreen();
+      } else {
+        this.graph?.centerContent?.();
+      }
     }, 0);
   }
 
@@ -1356,7 +1732,7 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
     const cells = (json.cells || []) as any[];
 
     const payload = {
-      nodes: cells.filter((c) => !c.source) as any,
+      nodes: cells.filter((c) => !c.source && !c.data?.isSwimlane) as any,
       edges: cells.filter((c) => !!c.source && !!c.target) as any,
     };
 
@@ -1403,8 +1779,10 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
       })
       .pipe(
         finalize(() => {
-          this.aiWorking = false;
-          this.cdr.detectChanges();
+          setTimeout(() => {
+            this.aiWorking = false;
+            this.cdr.detectChanges();
+          }, 0);
         }),
       )
       .subscribe({
@@ -1417,6 +1795,11 @@ export class WorkflowDesignerComponent implements OnInit, AfterViewInit, OnDestr
           this.aiSummary = response.summary || 'Cambios aplicados con IA';
           this.message = this.aiSummary;
           this.errorMessage = '';
+
+          setTimeout(() => {
+            this.saveWorkflow();
+          }, 0);
+
           this.cdr.detectChanges();
         },
         error: (error) => {

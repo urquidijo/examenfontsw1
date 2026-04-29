@@ -8,3 +8,22 @@
   border-radius: 24px;
   overflow: hidden;
 }
+
+:host {
+  display: block;
+  overflow-x: hidden;
+}
+
+.workflow-canvas {
+  position: relative;
+  overflow: hidden;
+  contain: layout paint;
+}
+
+.workflow-canvas ::ng-deep .x6-graph {
+  overflow: hidden !important;
+}
+
+.workflow-canvas ::ng-deep svg {
+  overflow: hidden !important;
+}

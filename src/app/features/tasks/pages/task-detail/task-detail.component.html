@@ -43,22 +43,27 @@
               </p>
               <h2 class="mt-2 text-3xl font-bold">{{ task.nodeLabel }}</h2>
               <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
-                Atiende esta tarea, revisa la información del ticket asociado y completa la acción requerida para continuar el flujo.
+                Atiende esta tarea, revisa la información del ticket asociado y completa la acción
+                requerida para continuar el flujo.
               </p>
 
               <div class="mt-5 flex flex-wrap items-center gap-3 text-sm">
                 <span
                   class="rounded-full px-3 py-1.5 font-semibold"
                   [ngClass]="{
-                    'border border-amber-200 bg-amber-100 text-amber-700': task.status === 'PENDING',
-                    'border border-blue-200 bg-blue-100 text-blue-700': task.status === 'IN_PROGRESS',
-                    'border border-green-200 bg-green-100 text-green-700': task.status === 'DONE'
+                    'border border-amber-200 bg-amber-100 text-amber-700':
+                      task.status === 'PENDING',
+                    'border border-blue-200 bg-blue-100 text-blue-700':
+                      task.status === 'IN_PROGRESS',
+                    'border border-green-200 bg-green-100 text-green-700': task.status === 'DONE',
                   }"
                 >
                   {{ getTaskStatusLabel(task.status) }}
                 </span>
 
-                <span class="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-slate-100">
+                <span
+                  class="rounded-full border border-white/10 bg-white/10 px-3 py-1.5 text-slate-100"
+                >
                   Departamento: {{ task.departmentName || 'Sin departamento' }}
                 </span>
               </div>
@@ -84,7 +89,8 @@
 
         <div class="border-t border-slate-200 bg-slate-50 px-6 py-4">
           <p class="text-sm text-slate-600">
-            Revisa primero los detalles del ticket y luego completa la tarea según el tipo de acción requerida.
+            Revisa primero los detalles del ticket y luego completa la tarea según el tipo de acción
+            requerida.
           </p>
         </div>
       </section>
@@ -212,9 +218,7 @@
       >
         <div class="mb-5">
           <h3 class="text-xl font-bold text-slate-800">Decisión</h3>
-          <p class="mt-1 text-sm text-slate-500">
-            Selecciona una opción para continuar el flujo.
-          </p>
+          <p class="mt-1 text-sm text-slate-500">Selecciona una opción para continuar el flujo.</p>
         </div>
 
         <div
@@ -259,6 +263,98 @@
           <h3 class="text-xl font-bold text-slate-800">Formulario del trámite</h3>
           <p class="mt-1 text-sm text-slate-500">
             Completa la información requerida antes de finalizar la tarea.
+          </p>
+        </div>
+        <div class="mb-6 rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+                IA por voz
+              </p>
+
+              <h4 class="mt-1 text-lg font-bold text-slate-800">
+                Completar formulario con micrófono
+              </h4>
+
+              <p class="mt-1 text-sm leading-6 text-slate-600">
+                Dicta la información del trámite y la IA intentará completar los campos
+                automáticamente.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="button"
+                (click)="startAiFormVoiceInput()"
+                [disabled]="aiFormListening || aiFormProcessing"
+                class="rounded-2xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {{ aiFormListening ? 'Escuchando...' : 'Activar micrófono' }}
+              </button>
+
+              <button
+                type="button"
+                (click)="stopAiFormVoiceInput()"
+                [disabled]="!aiFormListening"
+                class="rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Detener
+              </button>
+
+              <button
+                type="button"
+                (click)="completeFormWithAi()"
+                [disabled]="aiFormProcessing || aiFormListening || !aiFormTranscript"
+                class="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {{ aiFormProcessing ? 'Completando...' : 'Completar con IA' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-4 rounded-2xl border border-cyan-200 bg-white p-4">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Texto para la IA
+                </p>
+                <p class="mt-1 text-xs text-slate-500">
+                  Puedes dictar con micrófono o escribir manualmente la información del trámite.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                (click)="clearAiFormTranscript()"
+                [disabled]="!aiFormTranscript || aiFormProcessing || aiFormListening"
+                class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Limpiar
+              </button>
+            </div>
+
+            <textarea
+              [(ngModel)]="aiFormTranscript"
+              name="aiFormTranscript"
+              rows="5"
+              [disabled]="aiFormProcessing"
+              placeholder="Ejemplo: El cliente se llama Juan Pérez, su número es 75000000, solicita revisión urgente, el monto es 1500 y la fecha es 2026-04-28..."
+              class="w-full resize-none rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+            ></textarea>
+          </div>
+
+          <p
+            *ngIf="aiFormMessage"
+            class="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700"
+          >
+            {{ aiFormMessage }}
+          </p>
+
+          <p
+            *ngIf="aiFormError"
+            class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"
+          >
+            {{ aiFormError }}
           </p>
         </div>
 

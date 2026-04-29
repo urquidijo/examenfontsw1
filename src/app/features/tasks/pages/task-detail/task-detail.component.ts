@@ -21,6 +21,7 @@ import {
 } from '../../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { TicketService } from '../../../ticket/services/ticket.service';
 import { StoredFileInfo } from '../../models/task.model';
+import { TaskFormAiService } from '../../services/task-form-ai.service';
 
 @Component({
   selector: 'app-task-detail',
@@ -37,6 +38,7 @@ export class TaskDetailComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
   private dialog = inject(MatDialog);
   private ticketService = inject(TicketService);
+  private taskFormAiService = inject(TaskFormAiService);
 
   selectedFiles: File[] = [];
   selectedFilesByField: Record<string, File[]> = {};
@@ -53,12 +55,233 @@ export class TaskDetailComponent implements OnInit {
   loadingTramite = false;
   errorMessage = '';
 
+  aiFormListening = false;
+  aiFormProcessing = false;
+  aiFormTranscript = '';
+  aiFormMessage = '';
+  aiFormError = '';
+
+  private speechRecognition: any = null;
+
   selectedDecisionResult = '';
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
     this.taskId = this.route.snapshot.paramMap.get('taskId') || '';
     this.loadData();
+  }
+
+  startAiFormVoiceInput(): void {
+    if (!this.task?.requiresTramite || !this.tramiteTemplate?.fields?.length) {
+      this.aiFormError = 'No hay formulario dinámico disponible para completar.';
+      return;
+    }
+
+    if (typeof window === 'undefined') {
+      this.aiFormError = 'El reconocimiento de voz solo funciona en navegador.';
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      this.aiFormError = 'Tu navegador no soporta reconocimiento de voz.';
+      return;
+    }
+
+    this.aiFormTranscript = '';
+    this.aiFormMessage = '';
+    this.aiFormError = '';
+    this.aiFormListening = true;
+
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = 'es-BO';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let finalText = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+
+        if (result.isFinal) {
+          finalText += result[0].transcript + ' ';
+        }
+      }
+
+      if (finalText.trim()) {
+        this.aiFormTranscript = `${this.aiFormTranscript} ${finalText}`.trim();
+        this.cdr.detectChanges();
+      }
+    };
+
+    recognition.onerror = () => {
+      this.aiFormListening = false;
+      this.aiFormError = 'No se pudo escuchar el audio. Intenta nuevamente.';
+      this.cdr.detectChanges();
+    };
+
+    recognition.onend = () => {
+      this.aiFormListening = false;
+      this.cdr.detectChanges();
+    };
+
+    this.speechRecognition = recognition;
+    recognition.start();
+  }
+
+  stopAiFormVoiceInput(): void {
+    if (this.speechRecognition) {
+      this.speechRecognition.stop();
+    }
+
+    this.aiFormListening = false;
+    this.cdr.detectChanges();
+  }
+
+  completeFormWithAi(): void {
+    if (!this.projectId || !this.taskId || !this.task) return;
+
+    if (!this.aiFormTranscript.trim()) {
+      this.aiFormError =
+        'Primero dicta la información para que la IA pueda completar el formulario.';
+      return;
+    }
+
+    if (!this.tramiteTemplate?.fields?.length) {
+      this.aiFormError = 'No hay campos disponibles para completar.';
+      return;
+    }
+
+    this.aiFormProcessing = true;
+    this.aiFormError = '';
+    this.aiFormMessage = '';
+
+    const fields = this.tramiteTemplate.fields
+      .filter((field: any) => field.type !== 'FILE')
+      .map((field: any) => ({
+        id: field.id,
+        label: field.label,
+        type: field.type,
+        required: field.required,
+        placeholder: field.placeholder,
+        options: field.options || [],
+      }));
+
+    this.taskFormAiService
+      .fillTaskFormWithAi(this.projectId, this.taskId, {
+        transcript: this.aiFormTranscript,
+        currentDate: this.getTodayIsoDate(),
+        taskTitle: this.task.nodeLabel,
+        ticketTitle: this.task.ticket?.title,
+        ticketDescription: this.task.ticket?.description,
+        clientName: this.task.ticket?.clientName,
+        fields,
+      })
+      .subscribe({
+        next: (response) => {
+          this.applyAiFormValues(response.values || {});
+          this.aiFormMessage = response.summary || 'Formulario completado con IA.';
+          this.aiFormProcessing = false;
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          this.aiFormProcessing = false;
+          this.aiFormError = error?.error?.message || 'No se pudo completar el formulario con IA.';
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  private getTodayIsoDate(): string {
+    const today = new Date();
+
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+  }
+
+  private applyAiFormValues(values: Record<string, any>): void {
+    if (!this.tramiteForm || !this.tramiteTemplate?.fields?.length) return;
+
+    for (const field of this.tramiteTemplate.fields as any[]) {
+      if (field.type === 'FILE') continue;
+
+      const control = this.tramiteForm.get(field.id);
+
+      if (!control) continue;
+
+      const value = values[field.id];
+
+      if (value === undefined || value === null || value === '') continue;
+
+      if (field.type === 'CHECKBOX') {
+        control.setValue(Boolean(value));
+        continue;
+      }
+
+      if (field.type === 'NUMBER') {
+        const numberValue = Number(value);
+
+        if (!Number.isNaN(numberValue)) {
+          control.setValue(numberValue);
+        }
+
+        continue;
+      }
+
+      if (field.type === 'SELECT') {
+        const options = field.options || [];
+        const matchedOption = this.findBestSelectOption(value, options);
+
+        if (matchedOption) {
+          control.setValue(matchedOption);
+        }
+
+        continue;
+      }
+
+      control.setValue(value);
+    }
+
+    this.tramiteForm.markAsDirty();
+    this.tramiteForm.updateValueAndValidity();
+  }
+
+  private findBestSelectOption(value: any, options: string[]): string | null {
+    const normalizedValue = this.normalizeAiText(String(value));
+
+    const exact = options.find((option) => this.normalizeAiText(option) === normalizedValue);
+
+    if (exact) return exact;
+
+    const partial = options.find((option) => {
+      const normalizedOption = this.normalizeAiText(option);
+      return (
+        normalizedOption.includes(normalizedValue) || normalizedValue.includes(normalizedOption)
+      );
+    });
+
+    return partial || null;
+  }
+  clearAiFormTranscript(): void {
+    this.aiFormTranscript = '';
+    this.aiFormMessage = '';
+    this.aiFormError = '';
+    this.cdr.detectChanges();
+  }
+
+  private normalizeAiText(value: string): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 
   onFilesSelected(event: Event): void {
@@ -287,7 +510,7 @@ export class TaskDetailComponent implements OnInit {
     const control = this.tramiteForm.get(fieldId);
     return !!control && control.invalid && (control.touched || control.dirty);
   }
-  
+
   getTaskStatusLabel(status: string): string {
     switch (status) {
       case 'PENDING':
