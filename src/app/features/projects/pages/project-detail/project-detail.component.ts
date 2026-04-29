@@ -6,6 +6,18 @@ import { ProjectService } from '../../services/project.service';
 import { ProjectKpiService } from '../../services/project-kpi.service';
 import { Project } from '../../models/project.model';
 import { ProjectKpiResponse } from '../../models/project-kpi.model';
+import { ProjectAssistantService } from '../../services/project-assistant.service';
+import {
+  ProjectAssistantAction,
+  ProjectAssistantActionKey,
+  ProjectAssistantMessage,
+  ProjectAssistantChatResponse,
+} from '../../models/project-assistant.model';
+
+type ProjectAssistantUiMessage = ProjectAssistantMessage & {
+  id: number;
+  actions?: ProjectAssistantAction[];
+};
 
 @Component({
   selector: 'app-project-detail',
@@ -17,8 +29,10 @@ export class ProjectDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private projectService = inject(ProjectService);
-  private projectKpiService = inject(ProjectKpiService);
   private cdr = inject(ChangeDetectorRef);
+  private projectAssistantService = inject(ProjectAssistantService);
+
+  
 
   projectId = '';
   project: Project | null = null;
@@ -32,6 +46,31 @@ export class ProjectDetailComponent implements OnInit {
 
   thresholdTickets = 10;
   thresholdDays = 2;
+
+  assistantOpen = false;
+assistantInput = '';
+assistantThinking = false;
+
+assistantSuggestions: string[] = [
+  'No sé qué hacer',
+  'Cómo creo un workflow',
+  'Cómo creo un ticket',
+  'Cómo reviso cuellos de botella',
+];
+
+assistantMessages: ProjectAssistantUiMessage[] = [
+  {
+    id: Date.now(),
+    sender: 'assistant',
+    text:
+      'Hola, soy tu asistente IA de NexaFlow. Puedes preguntarme cómo usar usuarios, trámites, departamentos, workflows, tickets, tareas o KPI.',
+    actions: [
+      { label: 'Qué hago primero', action: 'users' },
+      { label: 'Ver workflows', action: 'workflows' },
+      { label: 'Ver KPI', action: 'kpis' },
+    ],
+  },
+];
 
   ngOnInit(): void {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
@@ -129,4 +168,142 @@ export class ProjectDetailComponent implements OnInit {
   openTasks(): void {
     this.router.navigate(['/projects', this.projectId, 'tasks']);
   }
+  toggleAssistant(): void {
+  this.assistantOpen = !this.assistantOpen;
+  this.cdr.detectChanges();
+}
+
+closeAssistant(): void {
+  this.assistantOpen = false;
+  this.cdr.detectChanges();
+}
+
+sendAssistantMessage(): void {
+  const question = this.assistantInput.trim();
+
+  if (!question || this.assistantThinking || !this.projectId) return;
+
+  this.assistantMessages.push({
+    id: Date.now(),
+    sender: 'user',
+    text: question,
+  });
+
+  this.assistantInput = '';
+  this.assistantThinking = true;
+  this.cdr.detectChanges();
+
+  const history = this.assistantMessages.slice(-8).map((message) => ({
+    sender: message.sender,
+    text: message.text,
+  }));
+
+  this.projectAssistantService
+    .chat(this.projectId, {
+      message: question,
+      projectName: this.project?.name || '',
+      currentModule: 'project-detail',
+      history,
+    })
+    .subscribe({
+      next: (response) => {
+        this.assistantMessages.push({
+          id: Date.now() + 1,
+          sender: 'assistant',
+          text: response.answer || 'Puedo ayudarte a usar el proyecto.',
+          actions: response.actions || [],
+        });
+
+        if (response.suggestions?.length) {
+          this.assistantSuggestions = response.suggestions;
+        }
+
+        this.assistantThinking = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.assistantMessages.push({
+          id: Date.now() + 1,
+          sender: 'assistant',
+          text:
+            'No pude conectarme con la IA en este momento, pero puedo orientarte: revisa usuarios, trámites, departamentos, workflows, tickets, tareas y KPI según lo que necesites hacer.',
+          actions: [
+            { label: 'Usuarios', action: 'users' },
+            { label: 'Workflows', action: 'workflows' },
+            { label: 'KPI', action: 'kpis' },
+          ],
+        });
+
+        this.assistantThinking = false;
+        this.cdr.detectChanges();
+      },
+    });
+}
+
+askAssistant(question: string): void {
+  if (this.assistantThinking) return;
+
+  this.assistantInput = question;
+  this.sendAssistantMessage();
+}
+
+clearAssistantChat(): void {
+  this.assistantMessages = [
+    {
+      id: Date.now(),
+      sender: 'assistant',
+      text: 'Listo, empecemos de nuevo. Pregúntame qué necesitas hacer dentro del proyecto.',
+      actions: [
+        { label: 'Qué hago primero', action: 'users' },
+        { label: 'Ver workflows', action: 'workflows' },
+        { label: 'Ver KPI', action: 'kpis' },
+      ],
+    },
+  ];
+
+  this.assistantSuggestions = [
+    'No sé qué hacer',
+    'Cómo creo un workflow',
+    'Cómo creo un ticket',
+    'Cómo reviso cuellos de botella',
+  ];
+
+  this.cdr.detectChanges();
+}
+
+runAssistantAction(action: ProjectAssistantActionKey): void {
+  if (action === 'users') {
+    this.openUsers();
+    return;
+  }
+
+  if (action === 'tramites') {
+    this.openCases();
+    return;
+  }
+
+  if (action === 'departments') {
+    this.openDepartments();
+    return;
+  }
+
+  if (action === 'workflows') {
+    this.openWorkflows();
+    return;
+  }
+
+  if (action === 'tickets') {
+    this.openTickets();
+    return;
+  }
+
+  if (action === 'tasks') {
+    this.openTasks();
+    return;
+  }
+
+  if (action === 'kpis') {
+    this.openKpis();
+  }
+}
 }
