@@ -13,6 +13,8 @@ import { Project } from '../../../projects/models/project.model';
 import { WorkflowSummary } from '../../../workflow/models/workflow.model';
 import { Ticket } from '../../models/ticket.model';
 
+type VisibleTicketStatus = 'IN_PROGRESS' | 'COMPLETED' | 'REJECTED';
+
 @Component({
   selector: 'app-project-tickets',
   standalone: true,
@@ -47,7 +49,7 @@ export class ProjectTicketsComponent implements OnInit {
   selectedFiles: File[] = [];
 
   searchTerm = '';
-  selectedStatus = '';
+  selectedStatus: '' | VisibleTicketStatus = '';
   selectedWorkflowId = '';
   selectedDepartmentId = '';
 
@@ -84,7 +86,7 @@ export class ProjectTicketsComponent implements OnInit {
         catchError((error) => {
           console.error('Error cargando proyecto:', error);
           return of(null);
-        })
+        }),
       ),
       workflows: this.workflowService.getWorkflows(this.projectId).pipe(
         take(1),
@@ -92,7 +94,7 @@ export class ProjectTicketsComponent implements OnInit {
         catchError((error) => {
           console.error('Error cargando workflows:', error);
           return of([]);
-        })
+        }),
       ),
       tickets: this.ticketService.getTickets(this.projectId).pipe(
         take(1),
@@ -100,13 +102,13 @@ export class ProjectTicketsComponent implements OnInit {
         catchError((error) => {
           console.error('Error cargando tickets:', error);
           return of([]);
-        })
+        }),
       ),
     })
       .pipe(
         finalize(() => {
           this.loading = false;
-        })
+        }),
       )
       .subscribe({
         next: ({ project, workflows, tickets }) => {
@@ -119,8 +121,9 @@ export class ProjectTicketsComponent implements OnInit {
           }
 
           this.project = project;
+
           this.publishedWorkflows = (workflows ?? []).filter(
-            (item: WorkflowSummary) => item.status === 'PUBLISHED'
+            (item: WorkflowSummary) => item.status === 'PUBLISHED',
           );
 
           this.tickets = tickets ?? [];
@@ -173,7 +176,7 @@ export class ProjectTicketsComponent implements OnInit {
         timeout(15000),
         finalize(() => {
           this.saving = false;
-        })
+        }),
       )
       .subscribe({
         next: (ticket) => {
@@ -247,21 +250,28 @@ export class ProjectTicketsComponent implements OnInit {
   }
 
   applyFilters(): void {
-    const query = this.searchTerm.trim().toLowerCase();
+    const query = this.normalizeText(this.searchTerm);
 
     this.filteredTicketsCache = this.tickets.filter((ticket) => {
+      const visibleStatus = this.normalizeTicketStatus(ticket.status as string);
+
       const matchesSearch =
         !query ||
-        ticket.title?.toLowerCase().includes(query) ||
-        ticket.description?.toLowerCase().includes(query) ||
-        ticket.workflowName?.toLowerCase().includes(query) ||
-        ticket.clientName?.toLowerCase().includes(query) ||
-        ticket.clientEmail?.toLowerCase().includes(query) ||
-        ticket.clientPhone?.toLowerCase().includes(query) ||
-        ticket.currentDepartmentName?.toLowerCase().includes(query);
+        this.normalizeText(ticket.title).includes(query) ||
+        this.normalizeText(ticket.description).includes(query) ||
+        this.normalizeText(ticket.workflowName).includes(query) ||
+        this.normalizeText(ticket.clientName).includes(query) ||
+        this.normalizeText(ticket.clientEmail).includes(query) ||
+        this.normalizeText(ticket.clientPhone).includes(query) ||
+        this.normalizeText(ticket.clientReference).includes(query) ||
+        this.normalizeText(ticket.currentDepartmentName).includes(query);
 
-      const matchesStatus = !this.selectedStatus || ticket.status === this.selectedStatus;
-      const matchesWorkflow = !this.selectedWorkflowId || ticket.workflowId === this.selectedWorkflowId;
+      const matchesStatus =
+        !this.selectedStatus || visibleStatus === this.selectedStatus;
+
+      const matchesWorkflow =
+        !this.selectedWorkflowId || ticket.workflowId === this.selectedWorkflowId;
+
       const matchesDepartment =
         !this.selectedDepartmentId || ticket.currentDepartmentId === this.selectedDepartmentId;
 
@@ -269,34 +279,51 @@ export class ProjectTicketsComponent implements OnInit {
     });
   }
 
-  getStatusLabel(status: Ticket['status']): string {
-    switch (status) {
-      case 'OPEN':
-        return 'Abierto';
+  getStatusLabel(status: string): string {
+    const visibleStatus = this.normalizeTicketStatus(status);
+
+    switch (visibleStatus) {
       case 'IN_PROGRESS':
         return 'En proceso';
       case 'COMPLETED':
         return 'Completado';
-      case 'CANCELLED':
-        return 'Cancelado';
+      case 'REJECTED':
+        return 'Rechazado';
       default:
-        return status;
+        return 'En proceso';
     }
   }
 
-  getStatusClasses(status: Ticket['status']): string {
-    switch (status) {
-      case 'OPEN':
-        return 'bg-amber-100 text-amber-700 border border-amber-200';
+  getStatusClasses(status: string): string {
+    const visibleStatus = this.normalizeTicketStatus(status);
+
+    switch (visibleStatus) {
       case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-700 border border-blue-200';
       case 'COMPLETED':
         return 'bg-green-100 text-green-700 border border-green-200';
-      case 'CANCELLED':
+      case 'REJECTED':
         return 'bg-red-100 text-red-700 border border-red-200';
       default:
-        return 'bg-slate-100 text-slate-700 border border-slate-200';
+        return 'bg-blue-100 text-blue-700 border border-blue-200';
     }
+  }
+
+  private normalizeTicketStatus(status?: string): VisibleTicketStatus {
+    if (status === 'COMPLETED') return 'COMPLETED';
+    if (status === 'REJECTED') return 'REJECTED';
+
+    if (status === 'CANCELLED') return 'REJECTED';
+
+    return 'IN_PROGRESS';
+  }
+
+  private normalizeText(value?: string | null): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 
   formatDate(value?: string): string {
