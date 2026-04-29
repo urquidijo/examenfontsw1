@@ -67,14 +67,16 @@ export class DepartmentTasksComponent implements OnInit {
     ]);
   }
 
-  getTaskStatusLabel(status: WorkflowTask['status']): string {
+  getTaskStatusLabel(status: string): string {
     switch (status) {
       case 'PENDING':
         return 'Pendiente';
       case 'IN_PROGRESS':
         return 'En proceso';
       case 'DONE':
-        return 'Hecho';
+        return 'Completada';
+      case 'REJECTED':
+        return 'Rechazada';
       default:
         return status;
     }

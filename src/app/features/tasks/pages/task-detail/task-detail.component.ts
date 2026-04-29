@@ -45,6 +45,7 @@ export class TaskDetailComponent implements OnInit {
 
   projectId = '';
   taskId = '';
+  rejecting = false;
 
   task: WorkflowTask | null = null;
   tramiteTemplate: TramiteTemplate | null = null;
@@ -69,6 +70,51 @@ export class TaskDetailComponent implements OnInit {
     this.projectId = this.route.snapshot.paramMap.get('id') || '';
     this.taskId = this.route.snapshot.paramMap.get('taskId') || '';
     this.loadData();
+  }
+
+  requestRejectTask(): void {
+    if (!this.task) return;
+
+    const dialogData: ConfirmDialogData = {
+      title: 'Rechazar tarea',
+      message:
+        '¿Deseas rechazar esta tarea? Esta acción terminará el ticket y ya no continuará el flujo.',
+      confirmText: 'Sí, rechazar',
+      cancelText: 'Cancelar',
+    };
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '420px',
+      disableClose: true,
+      data: dialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed) => {
+      if (confirmed) {
+        this.rejectTask();
+      }
+    });
+  }
+
+  rejectTask(): void {
+    if (!this.task) return;
+
+    this.rejecting = true;
+    this.errorMessage = '';
+
+    this.taskService
+      .rejectTask(this.projectId, this.task.id, 'Tarea rechazada desde el detalle de tarea')
+      .subscribe({
+        next: () => {
+          this.rejecting = false;
+          this.goBack();
+        },
+        error: (error) => {
+          this.rejecting = false;
+          this.errorMessage = error?.error?.message || 'No se pudo rechazar la tarea';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   startAiFormVoiceInput(): void {
@@ -519,6 +565,8 @@ export class TaskDetailComponent implements OnInit {
         return 'En proceso';
       case 'DONE':
         return 'Completada';
+      case 'REJECTED':
+        return 'Rechazada';
       default:
         return status;
     }

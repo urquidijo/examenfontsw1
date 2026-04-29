@@ -1,5 +1,5 @@
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED';
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'REJECTED';
 
 export interface StoredFileInfo {
   key: string;

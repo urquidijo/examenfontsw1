@@ -52,6 +52,13 @@ export class TaskService {
     );
   }
 
+  rejectTask(projectId: string, taskId: string, reason?: string) {
+    return this.http.post<WorkflowTask>(
+      `${this.apiUrl}/projects/${projectId}/tasks/${taskId}/reject`,
+      { reason: reason || 'Tarea rechazada por el funcionario' },
+    );
+  }
+
   getDepartmentCompletedHistory(
     projectId: string,
     departmentId: string,
